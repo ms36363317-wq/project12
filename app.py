@@ -88,15 +88,19 @@ def gradcam(img, model):
     img = tf.keras.applications.efficientnet.preprocess_input(img)
     img = np.expand_dims(img, axis=0)
 
-    # get last conv layer
+    # 🔥 اختار layer قبل آخر pooling
+    target_layer = None
     for layer in reversed(model.layers):
         if isinstance(layer, tf.keras.layers.Conv2D):
-            last_conv_layer = layer
+            target_layer = layer
             break
+
+    if target_layer is None:
+        raise ValueError("No Conv layer found")
 
     grad_model = tf.keras.models.Model(
         inputs=model.inputs,
-        outputs=[last_conv_layer.output, model.output]
+        outputs=[target_layer.output, model.output]
     )
 
     with tf.GradientTape() as tape:
@@ -106,29 +110,28 @@ def gradcam(img, model):
 
     grads = tape.gradient(loss, conv_outputs)
 
-    # 🔥 تحسين الحساب
+    # 🔥 لو gradients ضعيفة → نضخمها
+    grads = grads / (tf.reduce_mean(tf.abs(grads)) + 1e-8)
+
     weights = tf.reduce_mean(grads, axis=(1, 2))
-
     cam = tf.reduce_sum(weights[:, None, None, :] * conv_outputs, axis=-1)
-    cam = cam[0]
 
-    heatmap = cam.numpy()
+    cam = cam[0].numpy()
 
-    # 🔥 تنظيف القيم
-    heatmap = np.maximum(heatmap, 0)
+    # 🔥 مهم جدًا
+    cam = np.maximum(cam, 0)
 
-    # normalize
-    if np.max(heatmap) != 0:
-        heatmap /= np.max(heatmap)
+    if np.max(cam) > 0:
+        cam = cam / np.max(cam)
 
-    # 🔥 smoothing مهم جدًا
-    heatmap = cv2.GaussianBlur(heatmap, (15, 15), 0)
+    # 🔥 Contrast boost
+    cam = np.power(cam, 0.3)
 
     # resize
-    heatmap = cv2.resize(heatmap, (300, 300))
+    cam = cv2.resize(cam, (300, 300))
 
     # color
-    heatmap = np.uint8(255 * heatmap)
+    heatmap = np.uint8(255 * cam)
     heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
 
     return heatmap
@@ -140,8 +143,8 @@ def overlay_heatmap(img, heatmap):
     img = img.resize((300, 300))
     img = np.array(img)
 
-    # balance أفضل
-    overlay = cv2.addWeighted(img, 0.75, heatmap, 0.25, 0)
+    # 🔥 قلل تأثير الأحمر
+    overlay = cv2.addWeighted(img, 0.8, heatmap, 0.2, 0)
     return overlay
 
 # ==============================

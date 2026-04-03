@@ -10,8 +10,8 @@ from PIL import Image
 # ==============================
 # Config
 # ==============================
-MODEL_PATH = "model.h5"   # مهم: خليها h5 لو ده نوع الموديل
-MODEL_URL  = "https://drive.google.com/uc?id=13ZbZU6aYtHAs4cEeOwnDI_VRzTwZ0sUj"
+MODEL_PATH = "model.h5"
+MODEL_URL  = "https://drive.google.com/uc?export=download&id=13ZbZU6aYtHAs4cEeOwnDI_VRzTwZ0sUj"
 
 # ==============================
 # Load Model
@@ -19,27 +19,34 @@ MODEL_URL  = "https://drive.google.com/uc?id=13ZbZU6aYtHAs4cEeOwnDI_VRzTwZ0sUj"
 @st.cache_resource
 def load_model_cached():
 
+    # تحميل الموديل لو مش موجود
     if not os.path.exists(MODEL_PATH):
         st.write("⬇️ Downloading model...")
-        gdown.download(MODEL_URL, MODEL_PATH, quiet=False, fuzzy=True)
+        gdown.download(MODEL_URL, MODEL_PATH, quiet=False)
 
-    # Debug
-    st.write("Exists:", os.path.exists(MODEL_PATH))
-
+    # تحقق من وجود الملف
     if not os.path.exists(MODEL_PATH):
-        st.error("❌ Model not found")
+        st.error("❌ Model not found after download")
         st.stop()
 
+    # تحقق من الحجم
     size = os.path.getsize(MODEL_PATH)
-    st.write("Size:", size)
+    st.write("Model size:", size)
 
-    if size < 1_000_000:
-        st.error("❌ Model corrupted")
+    if size < 5_000_000:
+        st.error("❌ Model file is corrupted (too small)")
         st.stop()
 
-    return load_model(MODEL_PATH)
+    # محاولة تحميل الموديل
+    try:
+        model = load_model(MODEL_PATH)
+    except Exception as e:
+        st.error("❌ Failed to load model (file may be corrupted)")
+        st.stop()
 
-# 🔥 أهم سطر (كان ناقص عندك)
+    return model
+
+# تحميل الموديل مرة واحدة
 model = load_model_cached()
 
 # ==============================

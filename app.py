@@ -23,7 +23,12 @@ def load_model_cached():
 
 # 🔥 مهم جدًا (كان ناقص عندك)
 model = load_model_cached()
+st.write("Exists:", os.path.exists(model_path))
 
+if os.path.exists(model_path):
+    st.write("Size:", os.path.getsize(model_path))
+else:
+    st.write("❌ Model file not found yet")
 # ==============================
 # Classes
 # ==============================

@@ -21,36 +21,31 @@ def load_model_cached():
 
     if not os.path.exists(MODEL_PATH):
         st.write("⬇️ Downloading model...")
-
-        # 🔥 الطريقة الصح لـ Google Drive
         gdown.download(
             f"https://drive.google.com/uc?id={FILE_ID}",
             MODEL_PATH,
             quiet=False
         )
 
-    # تحقق من وجود الملف
     if not os.path.exists(MODEL_PATH):
-        st.error("❌ Model not found after download")
+        st.error("❌ Model not found")
         st.stop()
 
     size = os.path.getsize(MODEL_PATH)
     st.write("Model size:", size)
 
-    # حماية من الملف الفاسد
     if size < 5_000_000:
-        st.error("❌ Model corrupted (wrong download)")
+        st.error("❌ Model corrupted")
         st.stop()
 
     try:
         model = load_model(MODEL_PATH)
-    except Exception as e:
-        st.error("❌ Failed to load model (corrupted file)")
+    except:
+        st.error("❌ Failed to load model")
         st.stop()
 
     return model
 
-# 🔥 تحميل الموديل
 model = load_model_cached()
 
 # ==============================
@@ -85,18 +80,8 @@ def predict(img, model):
     return class_names[idx], float(np.max(preds))
 
 # ==============================
+# Grad-CAM
 # ==============================
-# Grad-CAM (Fixed Version)
-# ==============================
-
-def get_last_conv_layer(model):
-    # 🔥 يجيب آخر Conv layer تلقائيًا
-    for layer in reversed(model.layers):
-        if isinstance(layer, tf.keras.layers.Conv2D):
-            return layer.name
-    raise ValueError("No Conv layer found in model")
-
-
 def gradcam(img, model):
     img = img.resize((300, 300))
     img = np.array(img)
@@ -121,34 +106,35 @@ def gradcam(img, model):
 
     grads = tape.gradient(loss, conv_outputs)
 
-    # 🔥 الأهم: weights صح
     pooled_grads = tf.reduce_mean(grads, axis=(0, 1, 2))
     conv_outputs = conv_outputs[0]
 
     heatmap = tf.reduce_sum(conv_outputs * pooled_grads, axis=-1)
-
     heatmap = heatmap.numpy()
 
-    # 🔥 normalize مضبوط
     heatmap = np.maximum(heatmap, 0)
-
     if np.max(heatmap) != 0:
-        heatmap = heatmap / np.max(heatmap)
+        heatmap /= np.max(heatmap)
 
-    # 🔥 تحسين التباين (مهم جدًا)
     heatmap = np.power(heatmap, 0.5)
 
-    # resize
     heatmap = cv2.resize(heatmap, (300, 300))
-
-    # convert to color
     heatmap = np.uint8(255 * heatmap)
     heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
 
     return heatmap
 
 # ==============================
-# UI (3 Columns Layout)
+# Overlay
+# ==============================
+def overlay_heatmap(img, heatmap):
+    img = img.resize((300, 300))
+    img = np.array(img)
+    overlay = cv2.addWeighted(img, 0.7, heatmap, 0.3, 0)
+    return overlay
+
+# ==============================
+# UI
 # ==============================
 st.title("👁️ Eye Disease AI")
 
@@ -157,24 +143,12 @@ uploaded_file = st.file_uploader("Upload Eye Image", type=["jpg", "png"])
 if uploaded_file:
     image = Image.open(uploaded_file)
 
-    # 🔥 Prediction + GradCAM
+    # Prediction
     pred, conf = predict(image, model)
     heatmap = gradcam(image, model)
-
-    # 🔥 Overlay function
-def overlay_heatmap(img, heatmap):
-    img = img.resize((300, 300))
-    img = np.array(img)
-
-    # 🔥 توازن أفضل
-    overlay = cv2.addWeighted(img, 0.7, heatmap, 0.3, 0)
-    return overlay
-
     overlay = overlay_heatmap(image, heatmap)
 
-    # ==============================
-    # Layout (3 صور زي ما انت عايز)
-    # ==============================
+    # Layout
     col1, col2, col3 = st.columns(3)
 
     with col1:
@@ -186,9 +160,7 @@ def overlay_heatmap(img, heatmap):
     with col3:
         st.image(overlay, caption=f"Prediction: {pred}")
 
-    # ==============================
     # Results
-    # ==============================
     st.success(f"Prediction: {pred}")
     st.progress(int(conf * 100))
     st.info(f"Confidence: {conf:.2f}")

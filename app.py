@@ -162,7 +162,7 @@ if uploaded_file:
     heatmap = gradcam(image, model)
 
     # 🔥 Overlay function
-    def overlay_heatmap(img, heatmap):
+def overlay_heatmap(img, heatmap):
     img = img.resize((300, 300))
     img = np.array(img)
 

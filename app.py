@@ -145,8 +145,7 @@ def gradcam(img, model):
     return heatmap
 
 # ==============================
-# ==============================
-# UI
+# UI (3 Columns Layout)
 # ==============================
 st.title("👁️ Eye Disease AI")
 
@@ -155,11 +154,11 @@ uploaded_file = st.file_uploader("Upload Eye Image", type=["jpg", "png"])
 if uploaded_file:
     image = Image.open(uploaded_file)
 
-    # 🔥 حساب النتائج
+    # 🔥 Prediction + GradCAM
     pred, conf = predict(image, model)
     heatmap = gradcam(image, model)
 
-    # 🔥 overlay
+    # 🔥 Overlay function
     def overlay_heatmap(img, heatmap):
         img = img.resize((300, 300))
         img = np.array(img)
@@ -169,21 +168,22 @@ if uploaded_file:
     overlay = overlay_heatmap(image, heatmap)
 
     # ==============================
-    # Layout
+    # Layout (3 صور زي ما انت عايز)
     # ==============================
-    col1, col2 = st.columns(2)
+    col1, col2, col3 = st.columns(3)
 
     with col1:
         st.image(image, caption="Original Image")
 
     with col2:
-        st.image(overlay, caption="AI Focus (Grad-CAM)")
+        st.image(heatmap, caption="Grad-CAM++")
+
+    with col3:
+        st.image(overlay, caption=f"Prediction: {pred}")
 
     # ==============================
     # Results
     # ==============================
-    st.success(f"🧠 Prediction: {pred}")
-
+    st.success(f"Prediction: {pred}")
     st.progress(int(conf * 100))
-
-    st.info(f"📊 Confidence: {conf:.2f}")
+    st.info(f"Confidence: {conf:.2f}")

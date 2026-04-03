@@ -11,7 +11,7 @@ from PIL import Image
 # Config
 # ==============================
 MODEL_PATH = "model.h5"
-MODEL_URL  = "https://drive.google.com/uc?export=download&id=13ZbZU6aYtHAs4cEeOwnDI_VRzTwZ0sUj"
+FILE_ID = "11tjmQJITN0zHQ7x2wMPOF9L1JWnoZTxQ"
 
 # ==============================
 # Load Model
@@ -19,34 +19,38 @@ MODEL_URL  = "https://drive.google.com/uc?export=download&id=13ZbZU6aYtHAs4cEeOw
 @st.cache_resource
 def load_model_cached():
 
-    # تحميل الموديل لو مش موجود
     if not os.path.exists(MODEL_PATH):
         st.write("⬇️ Downloading model...")
-        gdown.download(MODEL_URL, MODEL_PATH, quiet=False)
+
+        # 🔥 الطريقة الصح لـ Google Drive
+        gdown.download(
+            f"https://drive.google.com/uc?id={FILE_ID}",
+            MODEL_PATH,
+            quiet=False
+        )
 
     # تحقق من وجود الملف
     if not os.path.exists(MODEL_PATH):
         st.error("❌ Model not found after download")
         st.stop()
 
-    # تحقق من الحجم
     size = os.path.getsize(MODEL_PATH)
     st.write("Model size:", size)
 
+    # حماية من الملف الفاسد
     if size < 5_000_000:
-        st.error("❌ Model file is corrupted (too small)")
+        st.error("❌ Model corrupted (wrong download)")
         st.stop()
 
-    # محاولة تحميل الموديل
     try:
         model = load_model(MODEL_PATH)
     except Exception as e:
-        st.error("❌ Failed to load model (file may be corrupted)")
+        st.error("❌ Failed to load model (corrupted file)")
         st.stop()
 
     return model
 
-# تحميل الموديل مرة واحدة
+# 🔥 تحميل الموديل
 model = load_model_cached()
 
 # ==============================

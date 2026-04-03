@@ -6,8 +6,8 @@ from tensorflow.keras.models import load_model
 from PIL import Image
 import gdown
 import os
-st.write(os.path.exists("model.h5"))
-st.write(os.path.getsize("model.h5"))
+st.write(os.path.exists("model.keras"))
+st.write(os.path.getsize("model.keras"))
 # ==============================
 
 # Load Model

@@ -98,17 +98,17 @@ def get_last_conv_layer(model):
 
 
 def gradcam(img, model):
-    # preprocess
     img = img.resize((300, 300))
     img = np.array(img)
     img = tf.keras.applications.efficientnet.preprocess_input(img)
     img = np.expand_dims(img, axis=0)
 
-    # 🔥 get correct last conv layer
-    last_conv_name = get_last_conv_layer(model)
-    last_conv_layer = model.get_layer(last_conv_name)
+    # get last conv layer
+    for layer in reversed(model.layers):
+        if isinstance(layer, tf.keras.layers.Conv2D):
+            last_conv_layer = layer
+            break
 
-    # model for gradients
     grad_model = tf.keras.models.Model(
         inputs=model.inputs,
         outputs=[last_conv_layer.output, model.output]
@@ -116,29 +116,32 @@ def gradcam(img, model):
 
     with tf.GradientTape() as tape:
         conv_outputs, predictions = grad_model(img)
-        class_index = tf.argmax(predictions[0])
-        loss = predictions[:, class_index]
+        class_idx = tf.argmax(predictions[0])
+        loss = predictions[:, class_idx]
 
-    # gradients
     grads = tape.gradient(loss, conv_outputs)
 
-    # 🔥 weights
+    # 🔥 الأهم: weights صح
     pooled_grads = tf.reduce_mean(grads, axis=(0, 1, 2))
-
     conv_outputs = conv_outputs[0]
 
-    # 🔥 heatmap computation
     heatmap = tf.reduce_sum(conv_outputs * pooled_grads, axis=-1)
 
     heatmap = heatmap.numpy()
 
-    # normalize
+    # 🔥 normalize مضبوط
     heatmap = np.maximum(heatmap, 0)
-    if np.max(heatmap) != 0:
-        heatmap /= np.max(heatmap)
 
-    # resize + color
+    if np.max(heatmap) != 0:
+        heatmap = heatmap / np.max(heatmap)
+
+    # 🔥 تحسين التباين (مهم جدًا)
+    heatmap = np.power(heatmap, 0.5)
+
+    # resize
     heatmap = cv2.resize(heatmap, (300, 300))
+
+    # convert to color
     heatmap = np.uint8(255 * heatmap)
     heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
 
@@ -160,10 +163,12 @@ if uploaded_file:
 
     # 🔥 Overlay function
     def overlay_heatmap(img, heatmap):
-        img = img.resize((300, 300))
-        img = np.array(img)
-        overlay = cv2.addWeighted(img, 0.6, heatmap, 0.4, 0)
-        return overlay
+    img = img.resize((300, 300))
+    img = np.array(img)
+
+    # 🔥 توازن أفضل
+    overlay = cv2.addWeighted(img, 0.7, heatmap, 0.3, 0)
+    return overlay
 
     overlay = overlay_heatmap(image, heatmap)
 

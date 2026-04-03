@@ -9,15 +9,16 @@ import os
 st.write(os.path.exists("model.h5"))
 st.write(os.path.getsize("model.h5"))
 # ==============================
+
 # Load Model
 # ==============================
 @st.cache_resource
-def load_model_cached():
-    model_path = "model.h5"
+MODEL_PATH = "model.keras"
+MODEL_URL  = "https://drive.google.com/uc?id=13ZbZU6aYtHAs4cEeOwnDI_VRzTwZ0sUj"
 
-    if not os.path.exists(model_path):
-        url = "https://drive.google.com/uc?id=13ZbZU6aYtHAs4cEeOwnDI_VRzTwZ0sUj"
-        gdown.download(url, model_path, quiet=False, fuzzy=True)
+def download_models():
+    if not os.path.exists(MODEL_PATH):
+        gdown.download(MODEL_URL, MODEL_PATH, quiet=False, fuzzy=True)
 
     return load_model(model_path)
 

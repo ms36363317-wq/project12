@@ -1,35 +1,32 @@
+import os
+import keras
+from keras.models import load_model
 import streamlit as st
 import numpy as np
-import tensorflow as tf
 import cv2
-from tensorflow.keras.models import load_model
+import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use('Agg')
 from PIL import Image
+import io
+from datetime import datetime
 import gdown
-import os
-st.write(os.path.exists("model.keras"))
-st.write(os.path.getsize("model.keras"))
-# ==============================
+# TensorFlow (نسخة واحدة بس)
+import tensorflow as tf
+from tensorflow.keras.models import load_model
+from transformers import AutoTokenizer, AutoModelForCausalLM
+# EfficientNet preprocessing
+_PREPROCESS = tf.keras.applications.efficientnet.preprocess_input
 
-# Load Model
-# ==============================
-@st.cache_resource
+# ─────────────────────────────────────────────
+# Model Paths & Download
+# ─────────────────────────────────────────────
 MODEL_PATH = "model.keras"
 MODEL_URL  = "https://drive.google.com/uc?id=13ZbZU6aYtHAs4cEeOwnDI_VRzTwZ0sUj"
 
 def download_models():
     if not os.path.exists(MODEL_PATH):
         gdown.download(MODEL_URL, MODEL_PATH, quiet=False, fuzzy=True)
-
-    return load_model(model_path)
-
-# 🔥 مهم جدًا (كان ناقص عندك)
-model = load_model_cached()
-st.write("Exists:", os.path.exists(model_path))
-
-if os.path.exists(model_path):
-    st.write("Size:", os.path.getsize(model_path))
-else:
-    st.write("❌ Model file not found yet")
 # ==============================
 # Classes
 # ==============================

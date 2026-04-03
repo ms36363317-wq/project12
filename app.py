@@ -1,32 +1,47 @@
 import os
-import keras
-from keras.models import load_model
 import streamlit as st
 import numpy as np
 import cv2
-import matplotlib.pyplot as plt
-import matplotlib
-matplotlib.use('Agg')
-from PIL import Image
-import io
-from datetime import datetime
 import gdown
-# TensorFlow (نسخة واحدة بس)
 import tensorflow as tf
 from tensorflow.keras.models import load_model
-from transformers import AutoTokenizer, AutoModelForCausalLM
-# EfficientNet preprocessing
-_PREPROCESS = tf.keras.applications.efficientnet.preprocess_input
+from PIL import Image
 
-# ─────────────────────────────────────────────
-# Model Paths & Download
-# ─────────────────────────────────────────────
-MODEL_PATH = "model.keras"
+# ==============================
+# Config
+# ==============================
+MODEL_PATH = "model.h5"   # مهم: خليها h5 لو ده نوع الموديل
 MODEL_URL  = "https://drive.google.com/uc?id=13ZbZU6aYtHAs4cEeOwnDI_VRzTwZ0sUj"
 
-def download_models():
+# ==============================
+# Load Model
+# ==============================
+@st.cache_resource
+def load_model_cached():
+
     if not os.path.exists(MODEL_PATH):
+        st.write("⬇️ Downloading model...")
         gdown.download(MODEL_URL, MODEL_PATH, quiet=False, fuzzy=True)
+
+    # Debug
+    st.write("Exists:", os.path.exists(MODEL_PATH))
+
+    if not os.path.exists(MODEL_PATH):
+        st.error("❌ Model not found")
+        st.stop()
+
+    size = os.path.getsize(MODEL_PATH)
+    st.write("Size:", size)
+
+    if size < 1_000_000:
+        st.error("❌ Model corrupted")
+        st.stop()
+
+    return load_model(MODEL_PATH)
+
+# 🔥 أهم سطر (كان ناقص عندك)
+model = load_model_cached()
+
 # ==============================
 # Classes
 # ==============================
@@ -45,7 +60,8 @@ class_names = [
 # ==============================
 def preprocess(img):
     img = img.resize((300, 300))
-    img = np.array(img) / 255.0
+    img = np.array(img)
+    img = tf.keras.applications.efficientnet.preprocess_input(img)
     return np.expand_dims(img, axis=0)
 
 # ==============================
@@ -62,7 +78,8 @@ def predict(img, model):
 # ==============================
 def gradcam(img, model):
     img = img.resize((300, 300))
-    img = np.array(img) / 255.0
+    img = np.array(img)
+    img = tf.keras.applications.efficientnet.preprocess_input(img)
     img = np.expand_dims(img, axis=0)
 
     last_conv_layer = model.get_layer("top_conv")
@@ -104,10 +121,7 @@ if uploaded_file:
     with col1:
         st.image(image, caption="Original")
 
-    # ✅ FIX
     pred, conf = predict(image, model)
-
-    # ✅ FIX
     heatmap = gradcam(image, model)
 
     with col2:
@@ -117,4 +131,5 @@ if uploaded_file:
         st.image(image, caption=f"{pred}")
 
     st.success(f"Prediction: {pred}")
+    st.progress(int(conf * 100))
     st.info(f"Confidence: {conf:.2f}")

@@ -106,19 +106,28 @@ def gradcam(img, model):
 
     grads = tape.gradient(loss, conv_outputs)
 
-    pooled_grads = tf.reduce_mean(grads, axis=(0, 1, 2))
-    conv_outputs = conv_outputs[0]
+    # 🔥 تحسين الحساب
+    weights = tf.reduce_mean(grads, axis=(1, 2))
 
-    heatmap = tf.reduce_sum(conv_outputs * pooled_grads, axis=-1)
-    heatmap = heatmap.numpy()
+    cam = tf.reduce_sum(weights[:, None, None, :] * conv_outputs, axis=-1)
+    cam = cam[0]
 
+    heatmap = cam.numpy()
+
+    # 🔥 تنظيف القيم
     heatmap = np.maximum(heatmap, 0)
+
+    # normalize
     if np.max(heatmap) != 0:
         heatmap /= np.max(heatmap)
 
-    heatmap = np.power(heatmap, 0.5)
+    # 🔥 smoothing مهم جدًا
+    heatmap = cv2.GaussianBlur(heatmap, (15, 15), 0)
 
+    # resize
     heatmap = cv2.resize(heatmap, (300, 300))
+
+    # color
     heatmap = np.uint8(255 * heatmap)
     heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
 
@@ -130,7 +139,9 @@ def gradcam(img, model):
 def overlay_heatmap(img, heatmap):
     img = img.resize((300, 300))
     img = np.array(img)
-    overlay = cv2.addWeighted(img, 0.7, heatmap, 0.3, 0)
+
+    # balance أفضل
+    overlay = cv2.addWeighted(img, 0.75, heatmap, 0.25, 0)
     return overlay
 
 # ==============================

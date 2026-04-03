@@ -4,16 +4,21 @@ import tensorflow as tf
 import cv2
 from tensorflow.keras.models import load_model
 from PIL import Image
-
+import gdown
+import os
 # ==============================
 # Load Model
 # ==============================
 @st.cache_resource
 def load_model_cached():
-    return load_model("model.h5")
 
-model = load_model_cached()
+    model_path = "model.h5"
 
+    if not os.path.exists(model_path):
+        url = "https://drive.google.com/uc?id=13ZbZU6aYtHAs4cEeOwnDI_VRzTwZ0sUj"
+        gdown.download(url, model_path, quiet=False)
+
+    return load_model(model_path)
 class_names = [
     'Diabetic Retinopathy',
     'Disc Edema',

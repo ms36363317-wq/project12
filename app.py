@@ -40,7 +40,7 @@ def preprocess(img):
 # ==============================
 # Prediction
 # ==============================
-def predict(img):
+def predict(img, model):
     processed = preprocess(img)
     preds = model.predict(processed)
     idx = np.argmax(preds)

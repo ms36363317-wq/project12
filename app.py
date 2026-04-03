@@ -17,15 +17,12 @@ def load_model_cached():
 
     if not os.path.exists(model_path):
         url = "https://drive.google.com/uc?id=13ZbZU6aYtHAs4cEeOwnDI_VRzTwZ0sUj"
-        
-        # مهم: force download
         gdown.download(url, model_path, quiet=False, fuzzy=True)
 
-    # 🔥 تحقق من الملف
-    if os.path.getsize(model_path) < 1000000:
-        raise Exception("❌ Model file is corrupted or not downloaded correctly")
-
     return load_model(model_path)
+
+# 🔥 مهم جدًا (كان ناقص عندك)
+model = load_model_cached()
 
 # ==============================
 # Classes

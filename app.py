@@ -6,12 +6,12 @@ from tensorflow.keras.models import load_model
 from PIL import Image
 import gdown
 import os
+
 # ==============================
 # Load Model
 # ==============================
 @st.cache_resource
 def load_model_cached():
-
     model_path = "model.h5"
 
     if not os.path.exists(model_path):
@@ -19,6 +19,13 @@ def load_model_cached():
         gdown.download(url, model_path, quiet=False)
 
     return load_model(model_path)
+
+# ✅ مهم جدًا
+model = load_model_cached()
+
+# ==============================
+# Classes
+# ==============================
 class_names = [
     'Diabetic Retinopathy',
     'Disc Edema',
@@ -49,7 +56,7 @@ def predict(img, model):
 # ==============================
 # Grad-CAM++
 # ==============================
-def gradcam(img):
+def gradcam(img, model):
     img = img.resize((300, 300))
     img = np.array(img) / 255.0
     img = np.expand_dims(img, axis=0)
@@ -63,13 +70,14 @@ def gradcam(img):
 
     with tf.GradientTape() as tape:
         conv_outputs, predictions = grad_model(img)
-        loss = predictions[:, np.argmax(predictions[0])]
+        loss = predictions[:, tf.argmax(predictions[0])]
 
     grads = tape.gradient(loss, conv_outputs)
     heatmap = tf.reduce_mean(grads, axis=(0, 1, 2)).numpy()
 
     heatmap = np.maximum(heatmap, 0)
-    heatmap /= np.max(heatmap)
+    if np.max(heatmap) != 0:
+        heatmap /= np.max(heatmap)
 
     heatmap = cv2.resize(heatmap, (300, 300))
     heatmap = np.uint8(255 * heatmap)
@@ -92,9 +100,11 @@ if uploaded_file:
     with col1:
         st.image(image, caption="Original")
 
-    pred, conf = predict(image)
+    # ✅ FIX
+    pred, conf = predict(image, model)
 
-    heatmap = gradcam(image)
+    # ✅ FIX
+    heatmap = gradcam(image, model)
 
     with col2:
         st.image(heatmap, caption="Grad-CAM++")

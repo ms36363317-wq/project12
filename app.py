@@ -85,38 +85,66 @@ def predict(img, model):
     return class_names[idx], float(np.max(preds))
 
 # ==============================
-# Grad-CAM++
 # ==============================
+# Grad-CAM (Fixed Version)
+# ==============================
+
+def get_last_conv_layer(model):
+    # 🔥 يجيب آخر Conv layer تلقائيًا
+    for layer in reversed(model.layers):
+        if isinstance(layer, tf.keras.layers.Conv2D):
+            return layer.name
+    raise ValueError("No Conv layer found in model")
+
+
 def gradcam(img, model):
+    # preprocess
     img = img.resize((300, 300))
     img = np.array(img)
     img = tf.keras.applications.efficientnet.preprocess_input(img)
     img = np.expand_dims(img, axis=0)
 
-    last_conv_layer = model.get_layer("top_conv")
+    # 🔥 get correct last conv layer
+    last_conv_name = get_last_conv_layer(model)
+    last_conv_layer = model.get_layer(last_conv_name)
 
+    # model for gradients
     grad_model = tf.keras.models.Model(
-        model.inputs,
-        [last_conv_layer.output, model.output]
+        inputs=model.inputs,
+        outputs=[last_conv_layer.output, model.output]
     )
 
     with tf.GradientTape() as tape:
         conv_outputs, predictions = grad_model(img)
-        loss = predictions[:, tf.argmax(predictions[0])]
+        class_index = tf.argmax(predictions[0])
+        loss = predictions[:, class_index]
 
+    # gradients
     grads = tape.gradient(loss, conv_outputs)
-    heatmap = tf.reduce_mean(grads, axis=(0, 1, 2)).numpy()
 
+    # 🔥 weights
+    pooled_grads = tf.reduce_mean(grads, axis=(0, 1, 2))
+
+    conv_outputs = conv_outputs[0]
+
+    # 🔥 heatmap computation
+    heatmap = tf.reduce_sum(conv_outputs * pooled_grads, axis=-1)
+
+    heatmap = heatmap.numpy()
+
+    # normalize
     heatmap = np.maximum(heatmap, 0)
     if np.max(heatmap) != 0:
         heatmap /= np.max(heatmap)
 
+    # resize + color
     heatmap = cv2.resize(heatmap, (300, 300))
     heatmap = np.uint8(255 * heatmap)
     heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
 
     return heatmap
 
+# ==============================
 # ==============================
 # UI
 # ==============================
@@ -127,20 +155,35 @@ uploaded_file = st.file_uploader("Upload Eye Image", type=["jpg", "png"])
 if uploaded_file:
     image = Image.open(uploaded_file)
 
-    col1, col2, col3 = st.columns(3)
-
-    with col1:
-        st.image(image, caption="Original")
-
+    # 🔥 حساب النتائج
     pred, conf = predict(image, model)
     heatmap = gradcam(image, model)
 
+    # 🔥 overlay
+    def overlay_heatmap(img, heatmap):
+        img = img.resize((300, 300))
+        img = np.array(img)
+        overlay = cv2.addWeighted(img, 0.6, heatmap, 0.4, 0)
+        return overlay
+
+    overlay = overlay_heatmap(image, heatmap)
+
+    # ==============================
+    # Layout
+    # ==============================
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.image(image, caption="Original Image")
+
     with col2:
-        st.image(heatmap, caption="Grad-CAM++")
+        st.image(overlay, caption="AI Focus (Grad-CAM)")
 
-    with col3:
-        st.image(image, caption=f"{pred}")
+    # ==============================
+    # Results
+    # ==============================
+    st.success(f"🧠 Prediction: {pred}")
 
-    st.success(f"Prediction: {pred}")
     st.progress(int(conf * 100))
-    st.info(f"Confidence: {conf:.2f}")
+
+    st.info(f"📊 Confidence: {conf:.2f}")

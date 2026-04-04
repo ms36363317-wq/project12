@@ -12,6 +12,97 @@ from PIL import Image
 # ==============================
 MODEL_PATH = "model.h5"
 FILE_ID = "11tjmQJITN0zHQ7x2wMPOF9L1JWnoZTxQ"
+######################
+# ─── Page Config ────────────────────────────────────────────────────────────
+st.set_page_config(
+    page_title="Eye Disease AI Diagnosis",
+    page_icon="👁️",
+    layout="wide",
+)
+ 
+# ─── Custom CSS ─────────────────────────────────────────────────────────────
+st.markdown("""
+<style>
+    .main-title {
+        font-size: 2.2rem;
+        font-weight: 700;
+        color: #1a73e8;
+        text-align: center;
+        margin-bottom: 0.2rem;
+    }
+    .sub-title {
+        font-size: 1rem;
+        color: #555;
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+    .disease-badge {
+        display: inline-block;
+        background: #1a73e8;
+        color: white;
+        padding: 6px 18px;
+        border-radius: 20px;
+        font-size: 1.1rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+    }
+    .confidence-bar-label {
+        font-size: 0.9rem;
+        color: #333;
+        margin-bottom: 4px;
+    }
+    .report-box {
+        background: #f0f4ff;
+        border-left: 4px solid #1a73e8;
+        border-radius: 8px;
+        padding: 1rem 1.2rem;
+        font-size: 0.97rem;
+        line-height: 1.8;
+        color: #222;
+    }
+    .warning-box {
+        background: #fff8e1;
+        border-left: 4px solid #f9a825;
+        border-radius: 8px;
+        padding: 0.8rem 1rem;
+        font-size: 0.88rem;
+        color: #555;
+        margin-top: 1.5rem;
+    }
+    .section-header {
+        font-size: 1.05rem;
+        font-weight: 600;
+        color: #1a73e8;
+        margin-top: 1.2rem;
+        margin-bottom: 0.4rem;
+    }
+</style>
+""", unsafe_allow_html=True)
+ 
+# ─── Constants ───────────────────────────────────────────────────────────────
+CLASS_NAMES = [
+    'Diabetic Retinopathy',
+    'Disc Edema',
+    'Healthy',
+    'Myopia',
+    'Pterygium',
+    'Retinal Detachment',
+    'Retinitis Pigmentosa',
+
+]
+
+IMG_SIZE = (300, 300)
+LAST_CONV_LAYER = "top_conv"
+
+DISEASE_INFO = {
+    'Diabetic Retinopathy': ('⚠️ High', '#ef4444'),
+    'Disc Edema':           ('⚠️ High', '#ef4444'),
+    'Healthy':              ('✅ Normal', '#10b981'),
+    'Myopia':               ('🟡 Moderate', '#f59e0b'),
+    'Pterygium':            ('🟡 Moderate', '#f59e0b'),
+    'Retinal Detachment':   ('🚨 Critical', '#dc2626'),
+    'Retinitis Pigmentosa': ('⚠️ High', '#ef4444'),
+}
 
 # ==============================
 # Load Model

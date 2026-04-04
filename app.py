@@ -75,8 +75,32 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
  
-# ==============================
-# Constants
+
+# ─── Constants ───────────────────────────────────────────────────────────────
+CLASS_NAMES = [
+    'Diabetic Retinopathy',
+    'Disc Edema',
+    'Healthy',
+    'Myopia',
+    'Pterygium',
+    'Retinal Detachment',
+    'Retinitis Pigmentosa',
+
+]
+
+IMG_SIZE = (300, 300)
+LAST_CONV_LAYER = "top_conv"
+
+DISEASE_INFO = {
+    'Diabetic Retinopathy': ('⚠️ High', '#ef4444'),
+    'Disc Edema':           ('⚠️ High', '#ef4444'),
+    'Healthy':              ('✅ Normal', '#10b981'),
+    'Myopia':               ('🟡 Moderate', '#f59e0b'),
+    'Pterygium':            ('🟡 Moderate', '#f59e0b'),
+    'Retinal Detachment':   ('🚨 Critical', '#dc2626'),
+    'Retinitis Pigmentosa': ('⚠️ High', '#ef4444'),
+}
+
 # ==============================
 MODEL_PATH = "model.h5"
 FILE_ID = "11tjmQJITN0zHQ7x2wMPOF9L1JWnoZTxQ"

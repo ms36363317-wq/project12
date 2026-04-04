@@ -8,102 +8,96 @@ from tensorflow.keras.models import load_model
 from PIL import Image
 
 # ==============================
-# Config
 # ==============================
-MODEL_PATH = "model.h5"
-FILE_ID = "11tjmQJITN0zHQ7x2wMPOF9L1JWnoZTxQ"
-######################
-# ─── Page Config ────────────────────────────────────────────────────────────
-st.set_page_config(
-    page_title="Eye Disease AI Diagnosis",
-    page_icon="👁️",
-    layout="wide",
-)
- 
-# ─── Custom CSS ─────────────────────────────────────────────────────────────
-st.markdown("""
-<style>
-    .main-title {
-        font-size: 2.2rem;
-        font-weight: 700;
-        color: #1a73e8;
-        text-align: center;
-        margin-bottom: 0.2rem;
-    }
-    .sub-title {
-        font-size: 1rem;
-        color: #555;
-        text-align: center;
-        margin-bottom: 2rem;
-    }
-    .disease-badge {
-        display: inline-block;
-        background: #1a73e8;
-        color: white;
-        padding: 6px 18px;
-        border-radius: 20px;
-        font-size: 1.1rem;
-        font-weight: 600;
-        margin-bottom: 0.5rem;
-    }
-    .confidence-bar-label {
-        font-size: 0.9rem;
-        color: #333;
-        margin-bottom: 4px;
-    }
-    .report-box {
-        background: #f0f4ff;
-        border-left: 4px solid #1a73e8;
-        border-radius: 8px;
-        padding: 1rem 1.2rem;
-        font-size: 0.97rem;
-        line-height: 1.8;
-        color: #222;
-    }
-    .warning-box {
-        background: #fff8e1;
-        border-left: 4px solid #f9a825;
-        border-radius: 8px;
-        padding: 0.8rem 1rem;
-        font-size: 0.88rem;
-        color: #555;
-        margin-top: 1.5rem;
-    }
-    .section-header {
-        font-size: 1.05rem;
-        font-weight: 600;
-        color: #1a73e8;
-        margin-top: 1.2rem;
-        margin-bottom: 0.4rem;
-    }
-</style>
-""", unsafe_allow_html=True)
- 
-# ─── Constants ───────────────────────────────────────────────────────────────
-CLASS_NAMES = [
-    'Diabetic Retinopathy',
-    'Disc Edema',
-    'Healthy',
-    'Myopia',
-    'Pterygium',
-    'Retinal Detachment',
-    'Retinitis Pigmentosa',
+# UI (Professional Version)
+# ==============================
 
-]
+# Title
+st.markdown('<div class="main-title">👁️ Eye Disease AI Diagnosis</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-title">Upload a retinal image to detect eye diseases using AI</div>', unsafe_allow_html=True)
 
-IMG_SIZE = (300, 300)
-LAST_CONV_LAYER = "top_conv"
+uploaded_file = st.file_uploader("📤 Upload Eye Image", type=["jpg", "png"])
 
-DISEASE_INFO = {
-    'Diabetic Retinopathy': ('⚠️ High', '#ef4444'),
-    'Disc Edema':           ('⚠️ High', '#ef4444'),
-    'Healthy':              ('✅ Normal', '#10b981'),
-    'Myopia':               ('🟡 Moderate', '#f59e0b'),
-    'Pterygium':            ('🟡 Moderate', '#f59e0b'),
-    'Retinal Detachment':   ('🚨 Critical', '#dc2626'),
-    'Retinitis Pigmentosa': ('⚠️ High', '#ef4444'),
-}
+if uploaded_file:
+    image = Image.open(uploaded_file)
 
+    # ==============================
+    # Prediction
+    # ==============================
+    pred, conf = predict(image, model)
+    heatmap = gradcam(image, model)
+    overlay = overlay_heatmap(image, heatmap)
+
+    severity, color = DISEASE_INFO.get(pred, ("Unknown", "#999"))
+
+    # ==============================
+    # Images Section
+    # ==============================
+    st.markdown('<div class="section-header">🔍 Visual Analysis</div>', unsafe_allow_html=True)
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.image(image, caption="Original Image", use_container_width=True)
+
+    with col2:
+        st.image(heatmap, caption="Grad-CAM++", use_container_width=True)
+
+    with col3:
+        st.image(overlay, caption="AI Focus Area", use_container_width=True)
+
+    # ==============================
+    # Result Section
+    # ==============================
+    st.markdown('<div class="section-header">🧠 Diagnosis Result</div>', unsafe_allow_html=True)
+
+    col_left, col_right = st.columns([2,1])
+
+    with col_left:
+        st.markdown(
+            f'<div class="disease-badge">{pred}</div>',
+            unsafe_allow_html=True
+        )
+
+        st.markdown(
+            f"<span style='color:{color}; font-weight:600;'>Severity: {severity}</span>",
+            unsafe_allow_html=True
+        )
+
+        st.markdown('<div class="confidence-bar-label">Confidence</div>', unsafe_allow_html=True)
+        st.progress(int(conf * 100))
+
+    with col_right:
+        st.metric(label="Confidence Score", value=f"{conf:.2f}")
+
+    # ==============================
+    # AI Report (Simple)
+    # ==============================
+    st.markdown('<div class="section-header">📄 AI Medical Insight</div>', unsafe_allow_html=True)
+
+    st.markdown(
+        f"""
+        <div class="report-box">
+        The AI model predicts <b>{pred}</b> with a confidence of <b>{conf:.2f}</b>.<br><br>
+        The highlighted regions in the image indicate areas that contributed most to the decision.
+        These regions may correspond to abnormal retinal patterns associated with the condition.
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+    # ==============================
+    # Warning
+    # ==============================
+    st.markdown(
+        """
+        <div class="warning-box">
+        ⚠️ This AI result is for assistance only and should not replace professional medical diagnosis.
+        Please consult an ophthalmologist for confirmation.
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 # ==============================
 # Load Model
 # ==============================

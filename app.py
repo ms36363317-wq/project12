@@ -304,29 +304,41 @@ severity_color = {
 # ==============================
 # Load Model
 # ==============================
+MODEL_PATH = "model.h5"
+FILE_ID = "11tjmQJITN0zHQ7x2wMPOF9L1JWnoZTxQ"
+
 @st.cache_resource
 def load_model_cached():
-    if not os.path.exists(MODEL_PATH):
-        with st.spinner("⬇️ جاري تحميل النموذج..."):
-            gdown.download(
-                f"https://drive.google.com/uc?id={FILE_ID}",
-                MODEL_PATH,
-                quiet=False
-            )
 
     if not os.path.exists(MODEL_PATH):
-        st.error("❌ النموذج غير موجود")
+        st.write("⬇️ Downloading model...")
+        gdown.download(
+            f"https://drive.google.com/uc?id={FILE_ID}",
+            MODEL_PATH,
+            quiet=False
+        )
+
+    if not os.path.exists(MODEL_PATH):
+        st.error("❌ Model not found")
         st.stop()
 
-    if os.path.getsize(MODEL_PATH) < 5_000_000:
-        st.error("❌ ملف النموذج تالف")
+    size = os.path.getsize(MODEL_PATH)
+    st.write("Model size:", size)
+
+    if size < 5_000_000:
+        st.error("❌ Model corrupted")
         st.stop()
 
     try:
-        return load_model(MODEL_PATH)
-    except Exception as e:
-        st.error(f"❌ فشل تحميل النموذج: {e}")
+        model = load_model(MODEL_PATH)
+    except:
+        st.error("❌ Failed to load model")
         st.stop()
+
+    return model
+
+model = load_model_cached()
+
 
 # ==============================
 # Classes

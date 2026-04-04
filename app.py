@@ -12,10 +12,6 @@ from PIL import Image
 # ==============================
 MODEL_PATH = "model.h5"
 FILE_ID = "11tjmQJITN0zHQ7x2wMPOF9L1JWnoZTxQ"
-IMG_SIZE = (300, 300)
-
-# 🔥 مهم: غيرها لو layer مختلفة
-LAST_CONV_LAYER = "top_conv"
 
 # ==============================
 # Load Model
@@ -66,72 +62,90 @@ class_names = [
 ]
 
 # ==============================
-# Grad-CAM++
+# Preprocess
 # ==============================
-def make_gradcam_plus_plus(img_array, model, last_conv_layer_name):
+def preprocess(img):
+    img = img.resize((300, 300))
+    img = np.array(img)
+    img = tf.keras.applications.efficientnet.preprocess_input(img)
+    return np.expand_dims(img, axis=0)
+
+# ==============================
+# Prediction
+# ==============================
+def predict(img, model):
+    processed = preprocess(img)
+    preds = model.predict(processed)
+    idx = np.argmax(preds)
+    return class_names[idx], float(np.max(preds))
+
+# ==============================
+# Grad-CAM
+# ==============================
+def gradcam(img, model):
+    img = img.resize((300, 300))
+    img = np.array(img)
+    img = tf.keras.applications.efficientnet.preprocess_input(img)
+    img = np.expand_dims(img, axis=0)
+
+    # 🔥 اختار layer قبل آخر pooling
+    target_layer = None
+    for layer in reversed(model.layers):
+        if isinstance(layer, tf.keras.layers.Conv2D):
+            target_layer = layer
+            break
+
+    if target_layer is None:
+        raise ValueError("No Conv layer found")
 
     grad_model = tf.keras.models.Model(
-        inputs=model.input,
-        outputs=[
-            model.get_layer(last_conv_layer_name).output,
-            model.output
-        ]
+        inputs=model.inputs,
+        outputs=[target_layer.output, model.output]
     )
 
     with tf.GradientTape() as tape:
-        conv_outputs, predictions = grad_model(img_array)
-        pred_index = tf.argmax(predictions[0])
-        loss = predictions[:, pred_index]
+        conv_outputs, predictions = grad_model(img)
+        class_idx = tf.argmax(predictions[0])
+        loss = predictions[:, class_idx]
 
-    grads = tape.gradient(loss, conv_outputs)[0]
-    conv_outputs = conv_outputs[0]
+    grads = tape.gradient(loss, conv_outputs)
 
-    grads_squared = tf.square(grads)
-    grads_cubed = grads_squared * grads
+    # 🔥 لو gradients ضعيفة → نضخمها
+    grads = grads / (tf.reduce_mean(tf.abs(grads)) + 1e-8)
 
-    denominator = 2 * grads_squared + tf.reduce_sum(
-        conv_outputs * grads_cubed, axis=(0, 1), keepdims=True
-    )
+    weights = tf.reduce_mean(grads, axis=(1, 2))
+    cam = tf.reduce_sum(weights[:, None, None, :] * conv_outputs, axis=-1)
 
-    denominator = tf.where(denominator != 0, denominator, tf.ones_like(denominator))
+    cam = cam[0].numpy()
 
-    alphas = grads_squared / denominator
-    weights = tf.reduce_sum(alphas * tf.nn.relu(grads), axis=(0, 1))
+    # 🔥 مهم جدًا
+    cam = np.maximum(cam, 0)
 
-    heatmap = tf.reduce_sum(conv_outputs * weights, axis=-1)
+    if np.max(cam) > 0:
+        cam = cam / np.max(cam)
 
-    heatmap = tf.maximum(heatmap, 0)
-    heatmap /= tf.reduce_max(heatmap) + 1e-8
+    # 🔥 Contrast boost
+    cam = np.power(cam, 0.3)
 
-    return heatmap.numpy(), int(pred_index)
+    # resize
+    cam = cv2.resize(cam, (300, 300))
+
+    # color
+    heatmap = np.uint8(255 * cam)
+    heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
+
+    return heatmap
 
 # ==============================
-# Generate Grad-CAM++
+# Overlay
 # ==============================
-def generate_gradcam_plus_plus(image):
+def overlay_heatmap(img, heatmap):
+    img = img.resize((300, 300))
+    img = np.array(img)
 
-    img_resized = image.resize(IMG_SIZE)
-    img_array = np.array(img_resized)
-    img_array = np.expand_dims(img_array, axis=0)
-    img_array = tf.keras.applications.efficientnet.preprocess_input(img_array)
-
-    heatmap, pred_idx = make_gradcam_plus_plus(
-        img_array, model, LAST_CONV_LAYER
-    )
-
-    pred_label = class_names[pred_idx]
-
-    original = np.array(img_resized)
-
-    heatmap = cv2.resize(heatmap, (IMG_SIZE[1], IMG_SIZE[0]))
-    heatmap = np.uint8(255 * heatmap)
-
-    heatmap = cv2.GaussianBlur(heatmap, (21, 21), 5)
-    heatmap_color = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
-
-    overlay = cv2.addWeighted(original, 0.6, heatmap_color, 0.4, 0)
-
-    return original, heatmap, overlay, pred_label
+    # 🔥 قلل تأثير الأحمر
+    overlay = cv2.addWeighted(img, 0.8, heatmap, 0.2, 0)
+    return overlay
 
 # ==============================
 # UI
@@ -143,15 +157,24 @@ uploaded_file = st.file_uploader("Upload Eye Image", type=["jpg", "png"])
 if uploaded_file:
     image = Image.open(uploaded_file)
 
-    original, heatmap, overlay, pred = generate_gradcam_plus_plus(image)
+    # Prediction
+    pred, conf = predict(image, model)
+    heatmap = gradcam(image, model)
+    overlay = overlay_heatmap(image, heatmap)
 
+    # Layout
     col1, col2, col3 = st.columns(3)
 
     with col1:
-        st.image(original, caption="Original Image", use_container_width=True)
+        st.image(image, caption="Original Image")
 
     with col2:
-        st.image(heatmap, caption="Grad-CAM++", use_container_width=True)
+        st.image(heatmap, caption="Grad-CAM++")
 
     with col3:
-        st.image(overlay, caption=f"Prediction: {pred}", use_container_width=True)
+        st.image(overlay, caption=f"Prediction: {pred}")
+
+    # Results
+    st.success(f"Prediction: {pred}")
+    st.progress(int(conf * 100))
+    st.info(f"Confidence: {conf:.2f}")

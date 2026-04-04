@@ -44,8 +44,8 @@ st.markdown("""
         position: absolute;
         inset: 0;
         background:
-            radial-gradient(ellipse 80% 60% at 50% 0%, rgba(0,180,255,0.12) 0%, transparent 70%),
-            radial-gradient(ellipse 40% 30% at 20% 80%, rgba(0,80,200,0.08) 0%, transparent 60%);
+            radial-gradient(ellipse 80% 60% at 50% 0%, rgba(0,150,200,0.12) 0%, transparent 60%),
+            radial-gradient(ellipse 40% 30% at 20% 80%, rgba(0,70,180,0.08) 0%, transparent 50%);
         pointer-events: none;
     }
     .hero-eyebrow {
@@ -75,7 +75,7 @@ st.markdown("""
 
     /* ── Upload ── */
     .upload-section {
-        background: rgba(255,255,255,0.03);
+        background: rgba(240,210,255,0.03);
         border: 1.5px dashed rgba(56,189,248,0.25);
         border-radius: 20px; padding: 2.5rem 2rem;
         text-align: center; margin-bottom: 2rem;

@@ -9,160 +9,72 @@ from PIL import Image
 
 # ==============================
 # Page Config
-# ==============================
+# ─── Page Config ────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title=" Assistant For Detection Of retinal Diseases",       
-    initial_sidebar_state="collapsed"
+    page_title="Eye Disease AI Diagnosis",
+    page_icon="👁️",
+    layout="wide",
 )
-
-# ==============================
-# Custom CSS
-# ==============================
+ 
+# ─── Custom CSS ─────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap');
-
-    html, body, [class*="css"] { font-family: 'DM Sans', sans-serif; }
-
-    .stApp {
-        background: #060a10;
-        color: #e8edf5;
-    }
-
-    #MainMenu, footer, header { visibility: hidden; }
-    .block-container { padding: 0 2rem 4rem; max-width: 1200px; }
-
-    /* ── Hero ── */
-    .hero {
-        position: relative;
+    .main-title {
+        font-size: 2.2rem;
+        font-weight: 700;
+        color: #1a73e8;
         text-align: center;
-        padding: 3.5rem 2rem 2.5rem;
-        overflow: hidden;
+        margin-bottom: 0.2rem;
     }
-    .hero::before {
-        content: '';
-        position: absolute;
-        inset: 0;
-        background:
-            radial-gradient(ellipse 80% 60% at 50% 0%, rgba(0,150,200,0.12) 0%, transparent 60%),
-            radial-gradient(ellipse 40% 30% at 20% 80%, rgba(0,70,180,0.08) 0%, transparent 50%);
-        pointer-events: none;
-    }
-    .hero-eyebrow {
-        font-size: 0.75rem; font-weight: 500; letter-spacing: 0.25em;
-        text-transform: uppercase; color: #38bdf8; margin-bottom: 0.75rem;
-    }
-    .hero-title {
-        font-family: 'Syne', sans-serif;
-        font-size: clamp(2.4rem, 5vw, 4rem);
-        font-weight: 800; line-height: 1.05;
-        letter-spacing: -0.02em; color: #f0f6ff; margin: 0 0 1rem;
-    }
-    .hero-title span {
-        background: linear-gradient(135deg, #38bdf8 0%, #818cf8 100%);
-        -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
-    }
-    .hero-subtitle {
-        font-size: 1rem; font-weight: 300; color: #8ba3bf;
-        max-width: 520px; margin: 0 auto; line-height: 1.7;
-    }
-
-    .divider {
-        height: 1px;
-        background: linear-gradient(90deg, transparent, rgba(56,189,248,0.3), transparent);
-        margin: 0 0 2.5rem;
-    }
-
-    /* ── Upload ── */
-    .upload-section {
-        background: rgba(240,210,255,0.03);
-        border: 1.5px dashed rgba(56,189,248,0.25);
-        border-radius: 20px; padding: 2.5rem 2rem;
-        text-align: center; margin-bottom: 2rem;
-    }
-    .upload-label {
-        font-family: 'Syne', sans-serif; font-size: 1.1rem;
-        font-weight: 600; color: #c8d8ea; margin-bottom: 0.4rem;
-    }
-    .upload-hint { font-size: 0.82rem; color: #5a7a96; }
-
-    [data-testid="stFileUploader"] { background: transparent !important; }
-    [data-testid="stFileUploader"] > div { border: none !important; background: transparent !important; padding: 0 !important; }
-    [data-testid="stFileUploader"] label { color: #38bdf8 !important; font-size: 0.9rem; }
-
-    /* ── Image Cards — أصغر حجماً ── */
-    .img-card {
-        background: rgba(255,255,255,0.03);
-        border: 1px solid rgba(255,255,255,0.07);
-        border-radius: 14px;
-        padding: 0.6rem 0.6rem 0.5rem;
+    .sub-title {
+        font-size: 1rem;
+        color: #555;
         text-align: center;
-        max-width: 220px;
-        margin: 0 auto;
+        margin-bottom: 2rem;
     }
-    .img-card-label {
-        font-size: 0.68rem; font-weight: 500;
-        letter-spacing: 0.18em; text-transform: uppercase;
-        color: #5a7a96; margin-top: 0.5rem;
+    .disease-badge {
+        display: inline-block;
+        background: #1a73e8;
+        color: white;
+        padding: 6px 18px;
+        border-radius: 20px;
+        font-size: 1.1rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
     }
-
-    /* ── Streamlit image ── */
-    [data-testid="stImage"] img {
-        border-radius: 10px;
-        width: 100%;
-        max-height: 200px;
-        object-fit: cover;
+    .confidence-bar-label {
+        font-size: 0.9rem;
+        color: #333;
+        margin-bottom: 4px;
     }
-
-    /* ── Progress Bar ── */
-    .stProgress > div > div > div > div {
-        background: linear-gradient(90deg, #0ea5e9, #6366f1) !important;
-        border-radius: 999px !important;
+    .report-box {
+        background: #f0f4ff;
+        border-left: 4px solid #1a73e8;
+        border-radius: 8px;
+        padding: 1rem 1.2rem;
+        font-size: 0.97rem;
+        line-height: 1.8;
+        color: #222;
     }
-    .stProgress > div > div {
-        background: rgba(255,255,255,0.06) !important;
-        border-radius: 999px !important; height: 8px !important;
+    .warning-box {
+        background: #fff8e1;
+        border-left: 4px solid #f9a825;
+        border-radius: 8px;
+        padding: 0.8rem 1rem;
+        font-size: 0.88rem;
+        color: #555;
+        margin-top: 1.5rem;
     }
-
-    /* ── Confidence ── */
-    .confidence-label {
-        font-size: 0.78rem; letter-spacing: 0.15em;
-        text-transform: uppercase; color: #5a7a96; margin-bottom: 0.5rem;
-    }
-    .confidence-value {
-        font-family: 'Syne', sans-serif; font-size: 2.4rem;
-        font-weight: 800; color: #f0f6ff; line-height: 1;
-    }
-    .confidence-value span { font-size: 1rem; font-weight: 400; color: #5a7a96; }
-
-    /* ── Disease Card ── */
-    .disease-card {
-        background: rgba(56,189,248,0.05);
-        border: 1px solid rgba(56,189,248,0.15);
-        border-radius: 14px; padding: 1.2rem 1.4rem; margin-top: 1rem;
-    }
-    .disease-card-title {
-        font-family: 'Syne', sans-serif; font-size: 0.95rem;
-        font-weight: 700; color: #38bdf8; margin-bottom: 0.4rem;
-    }
-    .disease-card-text { font-size: 0.85rem; color: #8ba3bf; line-height: 1.65; }
-
-    /* ── Disclaimer ── */
-    .disclaimer {
-        background: rgba(245,158,11,0.08);
-        border: 1px solid rgba(245,158,11,0.2);
-        border-radius: 12px; padding: 0.9rem 1.2rem;
-        font-size: 0.78rem; color: #92762e;
-        text-align: center; margin-top: 2.5rem; line-height: 1.6;
-    }
-
-    [data-testid="stSidebar"] {
-        background: #080c14 !important;
-        border-right: 1px solid rgba(255,255,255,0.06);
+    .section-header {
+        font-size: 1.05rem;
+        font-weight: 600;
+        color: #1a73e8;
+        margin-top: 1.2rem;
+        margin-bottom: 0.4rem;
     }
 </style>
 """, unsafe_allow_html=True)
-
+ 
 # ==============================
 # Constants
 # ==============================

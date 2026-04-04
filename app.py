@@ -13,7 +13,7 @@ from PIL import Image
 st.set_page_config(
     page_title="Eye Disease AI Diagnosis",
     page_icon="👁️",
-    layout="black",
+    layout="wide",
 )
  
 # ─── Custom CSS ─────────────────────────────────────────────────────────────

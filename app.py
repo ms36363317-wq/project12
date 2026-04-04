@@ -11,8 +11,7 @@ from PIL import Image
 # Page Config
 # ==============================
 st.set_page_config(
-    page_title="👁️ Assistant For Detection Of retinal Diseases",        # ← الاسم الجديد
-    layout="wide",
+    page_title=" Assistant For Detection Of retinal Diseases",       
     initial_sidebar_state="collapsed"
 )
 
@@ -312,9 +311,9 @@ def overlay_heatmap(img, heatmap):
 st.markdown("""
 <div class="hero">
     <div class="hero-eyebrow">AI-Powered Ophthalmology</div>
-    <h1 class="hero-title">Eye Vision <span>AI</span></h1>
+    <h1 class="hero-title">Assistant For Detection Of retinal Diseases<span>AI</span></h1>
     <p class="hero-subtitle">
-        نظام ذكاء اصطناعي متقدم لتحليل صور قاع العين وكشف الأمراض بدقة عالية باستخدام EfficientNet وGrad-CAM
+        نظام ذكاء اصطناعي متقدم لتحليل صور قاع العين وكشف الأمراض بدقة عالية باستخدام EfficientNet و Grad-CAM
     </p>
 </div>
 <div class="divider"></div>
@@ -344,7 +343,7 @@ with left_col:
     if uploaded_file:
         image = Image.open(uploaded_file).convert("RGB")
         thumb = image.copy()
-        thumb.thumbnail((220, 220))          # ← تصغير عرض الصورة
+        thumb.thumbnail((210, 210))          # ← تصغير عرض الصورة
         st.markdown('<div class="img-card">', unsafe_allow_html=True)
         st.image(thumb, use_container_width=False, width=220)
         st.markdown('<div class="img-card-label">الصورة الأصلية</div></div>', unsafe_allow_html=True)

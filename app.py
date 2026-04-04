@@ -11,7 +11,7 @@ from PIL import Image
 # Page Config
 # ==============================
 st.set_page_config(
-    page_title="Assistant For Detection Of Diseases",
+    page_title="👁️ Eye Vision AI",        # ← الاسم الجديد
     page_icon="👁️",
     layout="wide",
     initial_sidebar_state="collapsed"
@@ -24,21 +24,17 @@ st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap');
 
-    /* ── Reset & Base ─────────────────────────────────── */
-    html, body, [class*="css"] {
-        font-family: 'DM Sans', sans-serif;
-    }
+    html, body, [class*="css"] { font-family: 'DM Sans', sans-serif; }
 
     .stApp {
         background: #060a10;
         color: #e8edf5;
     }
 
-    /* ── Hide Streamlit chrome ─────────────────────────── */
     #MainMenu, footer, header { visibility: hidden; }
     .block-container { padding: 0 2rem 4rem; max-width: 1200px; }
 
-    /* ── Hero Header ───────────────────────────────────── */
+    /* ── Hero ── */
     .hero {
         position: relative;
         text-align: center;
@@ -55,191 +51,116 @@ st.markdown("""
         pointer-events: none;
     }
     .hero-eyebrow {
-        font-family: 'DM Sans', sans-serif;
-        font-size: 0.75rem;
-        font-weight: 500;
-        letter-spacing: 0.25em;
-        text-transform: uppercase;
-        color: #38bdf8;
-        margin-bottom: 0.75rem;
+        font-size: 0.75rem; font-weight: 500; letter-spacing: 0.25em;
+        text-transform: uppercase; color: #38bdf8; margin-bottom: 0.75rem;
     }
     .hero-title {
         font-family: 'Syne', sans-serif;
         font-size: clamp(2.4rem, 5vw, 4rem);
-        font-weight: 800;
-        line-height: 1.05;
-        letter-spacing: -0.02em;
-        color: #f0f6ff;
-        margin: 0 0 1rem;
+        font-weight: 800; line-height: 1.05;
+        letter-spacing: -0.02em; color: #f0f6ff; margin: 0 0 1rem;
     }
     .hero-title span {
         background: linear-gradient(135deg, #38bdf8 0%, #818cf8 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
+        -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
     }
     .hero-subtitle {
-        font-size: 1rem;
-        font-weight: 300;
-        color: #8ba3bf;
-        max-width: 520px;
-        margin: 0 auto;
-        line-height: 1.7;
+        font-size: 1rem; font-weight: 300; color: #8ba3bf;
+        max-width: 520px; margin: 0 auto; line-height: 1.7;
     }
 
-    /* ── Divider ───────────────────────────────────────── */
     .divider {
         height: 1px;
         background: linear-gradient(90deg, transparent, rgba(56,189,248,0.3), transparent);
         margin: 0 0 2.5rem;
     }
 
-    /* ── Upload Zone ───────────────────────────────────── */
+    /* ── Upload ── */
     .upload-section {
         background: rgba(255,255,255,0.03);
         border: 1.5px dashed rgba(56,189,248,0.25);
-        border-radius: 20px;
-        padding: 2.5rem 2rem;
-        text-align: center;
-        margin-bottom: 2rem;
-        transition: border-color 0.3s;
-    }
-    .upload-section:hover {
-        border-color: rgba(56,189,248,0.55);
+        border-radius: 20px; padding: 2.5rem 2rem;
+        text-align: center; margin-bottom: 2rem;
     }
     .upload-label {
-        font-family: 'Syne', sans-serif;
-        font-size: 1.1rem;
-        font-weight: 600;
-        color: #c8d8ea;
-        margin-bottom: 0.4rem;
+        font-family: 'Syne', sans-serif; font-size: 1.1rem;
+        font-weight: 600; color: #c8d8ea; margin-bottom: 0.4rem;
     }
-    .upload-hint {
-        font-size: 0.82rem;
-        color: #5a7a96;
-    }
+    .upload-hint { font-size: 0.82rem; color: #5a7a96; }
 
-    /* Override Streamlit file uploader */
-    [data-testid="stFileUploader"] {
-        background: transparent !important;
-    }
-    [data-testid="stFileUploader"] > div {
-        border: none !important;
-        background: transparent !important;
-        padding: 0 !important;
-    }
-    [data-testid="stFileUploader"] label {
-        color: #38bdf8 !important;
-        font-family: 'DM Sans', sans-serif;
-        font-size: 0.9rem;
-    }
+    [data-testid="stFileUploader"] { background: transparent !important; }
+    [data-testid="stFileUploader"] > div { border: none !important; background: transparent !important; padding: 0 !important; }
+    [data-testid="stFileUploader"] label { color: #38bdf8 !important; font-size: 0.9rem; }
 
-    /* ── Results Panel ─────────────────────────────────── */
-    .result-badge {
-        display: inline-block;
-        background: linear-gradient(135deg, #0ea5e9, #6366f1);
-        color: white;
-        font-family: 'Syne', sans-serif;
-        font-size: 1rem;
-        font-weight: 700;
-        letter-spacing: 0.02em;
-        padding: 0.5rem 1.4rem;
-        border-radius: 999px;
-        margin-bottom: 0.6rem;
-    }
-    .confidence-label {
-        font-size: 0.78rem;
-        letter-spacing: 0.15em;
-        text-transform: uppercase;
-        color: #5a7a96;
-        margin-bottom: 0.5rem;
-    }
-    .confidence-value {
-        font-family: 'Syne', sans-serif;
-        font-size: 2.4rem;
-        font-weight: 800;
-        color: #f0f6ff;
-        line-height: 1;
-    }
-    .confidence-value span {
-        font-size: 1rem;
-        font-weight: 400;
-        color: #5a7a96;
-    }
-
-    /* ── Image Cards ───────────────────────────────────── */
+    /* ── Image Cards — أصغر حجماً ── */
     .img-card {
         background: rgba(255,255,255,0.03);
         border: 1px solid rgba(255,255,255,0.07);
-        border-radius: 16px;
-        padding: 1rem 1rem 0.75rem;
+        border-radius: 14px;
+        padding: 0.6rem 0.6rem 0.5rem;
         text-align: center;
+        max-width: 220px;
+        margin: 0 auto;
     }
     .img-card-label {
-        font-size: 0.72rem;
-        font-weight: 500;
-        letter-spacing: 0.18em;
-        text-transform: uppercase;
-        color: #5a7a96;
-        margin-top: 0.75rem;
+        font-size: 0.68rem; font-weight: 500;
+        letter-spacing: 0.18em; text-transform: uppercase;
+        color: #5a7a96; margin-top: 0.5rem;
     }
 
-    /* ── Progress Bar ──────────────────────────────────── */
+    /* ── Streamlit image ── */
+    [data-testid="stImage"] img {
+        border-radius: 10px;
+        width: 100%;
+        max-height: 200px;
+        object-fit: cover;
+    }
+
+    /* ── Progress Bar ── */
     .stProgress > div > div > div > div {
         background: linear-gradient(90deg, #0ea5e9, #6366f1) !important;
         border-radius: 999px !important;
     }
     .stProgress > div > div {
         background: rgba(255,255,255,0.06) !important;
-        border-radius: 999px !important;
-        height: 8px !important;
+        border-radius: 999px !important; height: 8px !important;
     }
 
-    /* ── Disease Info Cards ────────────────────────────── */
+    /* ── Confidence ── */
+    .confidence-label {
+        font-size: 0.78rem; letter-spacing: 0.15em;
+        text-transform: uppercase; color: #5a7a96; margin-bottom: 0.5rem;
+    }
+    .confidence-value {
+        font-family: 'Syne', sans-serif; font-size: 2.4rem;
+        font-weight: 800; color: #f0f6ff; line-height: 1;
+    }
+    .confidence-value span { font-size: 1rem; font-weight: 400; color: #5a7a96; }
+
+    /* ── Disease Card ── */
     .disease-card {
         background: rgba(56,189,248,0.05);
         border: 1px solid rgba(56,189,248,0.15);
-        border-radius: 14px;
-        padding: 1.2rem 1.4rem;
-        margin-top: 1rem;
+        border-radius: 14px; padding: 1.2rem 1.4rem; margin-top: 1rem;
     }
     .disease-card-title {
-        font-family: 'Syne', sans-serif;
-        font-size: 0.95rem;
-        font-weight: 700;
-        color: #38bdf8;
-        margin-bottom: 0.4rem;
+        font-family: 'Syne', sans-serif; font-size: 0.95rem;
+        font-weight: 700; color: #38bdf8; margin-bottom: 0.4rem;
     }
-    .disease-card-text {
-        font-size: 0.85rem;
-        color: #8ba3bf;
-        line-height: 1.65;
-    }
+    .disease-card-text { font-size: 0.85rem; color: #8ba3bf; line-height: 1.65; }
 
-    /* ── Warning banner ────────────────────────────────── */
+    /* ── Disclaimer ── */
     .disclaimer {
         background: rgba(245,158,11,0.08);
         border: 1px solid rgba(245,158,11,0.2);
-        border-radius: 12px;
-        padding: 0.9rem 1.2rem;
-        font-size: 0.78rem;
-        color: #92762e;
-        text-align: center;
-        margin-top: 2.5rem;
-        line-height: 1.6;
+        border-radius: 12px; padding: 0.9rem 1.2rem;
+        font-size: 0.78rem; color: #92762e;
+        text-align: center; margin-top: 2.5rem; line-height: 1.6;
     }
 
-    /* ── Sidebar ───────────────────────────────────────── */
     [data-testid="stSidebar"] {
         background: #080c14 !important;
         border-right: 1px solid rgba(255,255,255,0.06);
-    }
-
-    /* ── Streamlit image ───────────────────────────────── */
-    [data-testid="stImage"] img {
-        border-radius: 12px;
-        width: 100%;
-        object-fit: cover;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -247,11 +168,11 @@ st.markdown("""
 # ==============================
 # Constants
 # ==============================
-MODEL_PATH = "eye_model.h5"
-FILE_ID = "YOUR_GOOGLE_DRIVE_FILE_ID"   # ← ضع ID الملف هنا
+MODEL_PATH = "model.h5"
+FILE_ID = "11tjmQJITN0zHQ7x2wMPOF9L1JWnoZTxQ"
 
 # ==============================
-# Disease Info Dictionary
+# Disease Info
 # ==============================
 disease_info = {
     "Diabetic Retinopathy": {
@@ -304,57 +225,40 @@ severity_color = {
 # ==============================
 # Load Model
 # ==============================
-MODEL_PATH = "model.h5"
-FILE_ID = "11tjmQJITN0zHQ7x2wMPOF9L1JWnoZTxQ"
-
 @st.cache_resource
 def load_model_cached():
+    if not os.path.exists(MODEL_PATH):
+        with st.spinner("⬇️ جاري تحميل النموذج..."):
+            gdown.download(
+                f"https://drive.google.com/uc?id={FILE_ID}",
+                MODEL_PATH,
+                quiet=False
+            )
 
     if not os.path.exists(MODEL_PATH):
-        st.write("⬇️ Downloading model...")
-        gdown.download(
-            f"https://drive.google.com/uc?id={FILE_ID}",
-            MODEL_PATH,
-            quiet=False
-        )
-
-    if not os.path.exists(MODEL_PATH):
-        st.error("❌ Model not found")
+        st.error("❌ النموذج غير موجود")
         st.stop()
 
-    size = os.path.getsize(MODEL_PATH)
-    st.write("Model size:", size)
-
-    if size < 5_000_000:
-        st.error("❌ Model corrupted")
+    if os.path.getsize(MODEL_PATH) < 5_000_000:
+        st.error("❌ ملف النموذج تالف")
         st.stop()
 
     try:
-        model = load_model(MODEL_PATH)
-    except:
-        st.error("❌ Failed to load model")
+        return load_model(MODEL_PATH)
+    except Exception as e:
+        st.error(f"❌ فشل تحميل النموذج: {e}")
         st.stop()
-
-    return model
-
-model = load_model_cached()
-
 
 # ==============================
 # Classes
 # ==============================
 class_names = [
-    'Diabetic Retinopathy',
-    'Disc Edema',
-    'Healthy',
-    'Myopia',
-    'Pterygium',
-    'Retinal Detachment',
-    'Retinitis Pigmentosa'
+    'Diabetic Retinopathy', 'Disc Edema', 'Healthy',
+    'Myopia', 'Pterygium', 'Retinal Detachment', 'Retinitis Pigmentosa'
 ]
 
 # ==============================
-# Preprocess
+# Helpers
 # ==============================
 def preprocess(img):
     img = img.resize((300, 300))
@@ -362,30 +266,20 @@ def preprocess(img):
     arr = tf.keras.applications.efficientnet.preprocess_input(arr)
     return np.expand_dims(arr, axis=0)
 
-# ==============================
-# Prediction
-# ==============================
 def predict(img, model):
-    processed = preprocess(img)
-    preds = model.predict(processed)
+    preds = model.predict(preprocess(img))
     idx = np.argmax(preds)
     return class_names[idx], float(np.max(preds)), preds[0]
 
-# ==============================
-# Grad-CAM
-# ==============================
 def gradcam(img, model):
-    arr = img.resize((300, 300))
-    arr = np.array(arr)
+    arr = np.array(img.resize((300, 300)))
     arr = tf.keras.applications.efficientnet.preprocess_input(arr)
     arr = np.expand_dims(arr, axis=0)
 
-    target_layer = None
-    for layer in reversed(model.layers):
-        if isinstance(layer, tf.keras.layers.Conv2D):
-            target_layer = layer
-            break
-
+    target_layer = next(
+        (l for l in reversed(model.layers) if isinstance(l, tf.keras.layers.Conv2D)),
+        None
+    )
     if target_layer is None:
         raise ValueError("No Conv2D layer found")
 
@@ -396,41 +290,30 @@ def gradcam(img, model):
 
     with tf.GradientTape() as tape:
         conv_outputs, predictions = grad_model(arr)
-        class_idx = tf.argmax(predictions[0])
-        loss = predictions[:, class_idx]
+        loss = predictions[:, tf.argmax(predictions[0])]
 
     grads = tape.gradient(loss, conv_outputs)
     grads = grads / (tf.reduce_mean(tf.abs(grads)) + 1e-8)
-
     weights = tf.reduce_mean(grads, axis=(1, 2))
-    cam = tf.reduce_sum(weights[:, None, None, :] * conv_outputs, axis=-1)
-    cam = cam[0].numpy()
+    cam = tf.reduce_sum(weights[:, None, None, :] * conv_outputs, axis=-1)[0].numpy()
     cam = np.maximum(cam, 0)
-
     if np.max(cam) > 0:
-        cam = cam / np.max(cam)
-
+        cam /= np.max(cam)
     cam = np.power(cam, 0.3)
     cam = cv2.resize(cam, (300, 300))
-    heatmap = np.uint8(255 * cam)
-    heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
-    return heatmap
+    return cv2.applyColorMap(np.uint8(255 * cam), cv2.COLORMAP_JET)
 
-# ==============================
-# Overlay
-# ==============================
 def overlay_heatmap(img, heatmap):
-    arr = img.resize((300, 300))
-    arr = np.array(arr)
+    arr = np.array(img.resize((300, 300)))
     return cv2.addWeighted(arr, 0.75, heatmap, 0.25, 0)
 
 # ==============================
-# Hero Header
+# Hero
 # ==============================
 st.markdown("""
 <div class="hero">
     <div class="hero-eyebrow">AI-Powered Ophthalmology</div>
-    <h1 class="hero-title">Eye Disease <span>Detection</span></h1>
+    <h1 class="hero-title">Eye Vision <span>AI</span></h1>
     <p class="hero-subtitle">
         نظام ذكاء اصطناعي متقدم لتحليل صور قاع العين وكشف الأمراض بدقة عالية باستخدام EfficientNet وGrad-CAM
     </p>
@@ -439,12 +322,12 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==============================
-# Load Model
+# Load
 # ==============================
 model = load_model_cached()
 
 # ==============================
-# Layout: Upload | Results
+# Layout
 # ==============================
 left_col, right_col = st.columns([1, 1.6], gap="large")
 
@@ -461,8 +344,10 @@ with left_col:
 
     if uploaded_file:
         image = Image.open(uploaded_file).convert("RGB")
+        thumb = image.copy()
+        thumb.thumbnail((220, 220))          # ← تصغير عرض الصورة
         st.markdown('<div class="img-card">', unsafe_allow_html=True)
-        st.image(image, use_container_width=True)
+        st.image(thumb, use_container_width=False, width=220)
         st.markdown('<div class="img-card-label">الصورة الأصلية</div></div>', unsafe_allow_html=True)
     else:
         st.markdown("""
@@ -482,7 +367,7 @@ with right_col:
         color = severity_color.get(pred, "#38bdf8")
         info = disease_info.get(pred, {})
 
-        # ── Diagnosis result ──────────────────────────────
+        # Diagnosis
         st.markdown(f"""
         <div style="margin-bottom:1.5rem;">
             <div style="font-size:0.72rem; letter-spacing:0.18em; text-transform:uppercase;
@@ -499,7 +384,6 @@ with right_col:
 
         st.progress(int(conf * 100))
 
-        # ── Disease Info ──────────────────────────────────
         if info:
             st.markdown(f"""
             <div class="disease-card">
@@ -513,7 +397,7 @@ with right_col:
             </div>
             """, unsafe_allow_html=True)
 
-        # ── Visual Analysis ───────────────────────────────
+        # Grad-CAM — أصغر حجماً
         st.markdown('<br>', unsafe_allow_html=True)
         st.markdown("""
         <div style="font-size:0.72rem; letter-spacing:0.18em; text-transform:uppercase;
@@ -523,17 +407,16 @@ with right_col:
         v1, v2 = st.columns(2)
         with v1:
             st.markdown('<div class="img-card">', unsafe_allow_html=True)
-            st.image(heatmap, use_container_width=True, channels="BGR")
+            st.image(heatmap, width=200, channels="BGR")
             st.markdown('<div class="img-card-label">خريطة الحرارة</div></div>', unsafe_allow_html=True)
         with v2:
             st.markdown('<div class="img-card">', unsafe_allow_html=True)
-            st.image(overlay, use_container_width=True, channels="BGR")
+            st.image(overlay, width=200, channels="BGR")
             st.markdown('<div class="img-card-label">الصورة المدمجة</div></div>', unsafe_allow_html=True)
 
-        # ── All class probabilities ───────────────────────
+        # All probabilities
         with st.expander("📊 جميع الاحتمالات"):
-            sorted_idx = np.argsort(all_preds)[::-1]
-            for i in sorted_idx:
+            for i in np.argsort(all_preds)[::-1]:
                 pct = float(all_preds[i]) * 100
                 bar_color = color if class_names[i] == pred else "#1e3a4a"
                 st.markdown(f"""
@@ -543,13 +426,11 @@ with right_col:
                                 overflow:hidden; text-overflow:ellipsis;">{class_names[i]}</div>
                     <div style="flex:1; background:rgba(255,255,255,0.05); border-radius:999px; height:6px; overflow:hidden;">
                         <div style="width:{pct:.1f}%; height:100%;
-                                    background:{bar_color}; border-radius:999px;
-                                    transition:width 0.5s ease;"></div>
+                                    background:{bar_color}; border-radius:999px;"></div>
                     </div>
                     <div style="width:44px; text-align:right; color:#5a7a96;">{pct:.1f}%</div>
                 </div>
                 """, unsafe_allow_html=True)
-
     else:
         st.markdown("""
         <div style="display:flex; flex-direction:column; align-items:center;
@@ -562,7 +443,7 @@ with right_col:
         """, unsafe_allow_html=True)
 
 # ==============================
-# Footer Disclaimer
+# Disclaimer
 # ==============================
 st.markdown("""
 <div class="disclaimer">

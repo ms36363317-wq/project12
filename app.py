@@ -258,54 +258,22 @@ class_names = [
 # ==============================
 # Helpers
 # ==============================
-def gradcam(img, model):
-    arr = np.array(img.resize((300, 300)))
+def preprocess(img):
+    img = img.resize((300, 300))
+    arr = np.array(img)
     arr = tf.keras.applications.efficientnet.preprocess_input(arr)
-    arr = np.expand_dims(arr, axis=0)
+    return np.expand_dims(arr, axis=0)
 
-    target_layer = next(
-        (l for l in reversed(model.layers) if isinstance(l, tf.keras.layers.Conv2D)),
-        None
-    )
-    if target_layer is None:
-        raise ValueError("No Conv2D layer found")
 
-    grad_model = tf.keras.models.Model(
-        inputs=model.inputs,
-        outputs=[target_layer.output, model.output]
-    )
+def predict(img, model):
+    preds = model.predict(preprocess(img))
+    idx = np.argmax(preds[0])
+    return class_names[idx], float(np.max(preds)), preds[0]
 
-    with tf.GradientTape() as tape:
-        outputs = grad_model(arr)
 
-        conv_outputs = outputs[0]
-        predictions = outputs[1]
-
-        # 🔥 أهم سطر (حل المشكلة)
-        if isinstance(predictions, list):
-            predictions = predictions[0]
-
-        # 🔥 دعم كل أنواع الموديلات
-        if predictions.shape[-1] == 1:
-            loss = predictions[:, 0]
-        else:
-            class_idx = tf.argmax(predictions[0]).numpy()
-            loss = predictions[:, class_idx]
-
-    grads = tape.gradient(loss, conv_outputs)
-    grads = grads / (tf.reduce_mean(tf.abs(grads)) + 1e-8)
-
-    weights = tf.reduce_mean(grads, axis=(1, 2))
-    cam = tf.reduce_sum(weights[:, None, None, :] * conv_outputs, axis=-1)[0].numpy()
-
-    cam = np.maximum(cam, 0)
-    if np.max(cam) > 0:
-        cam /= np.max(cam)
-
-    cam = np.power(cam, 0.3)
-    cam = cv2.resize(cam, (300, 300))
-
-    return cv2.applyColorMap(np.uint8(255 * cam), cv2.COLORMAP_JET)
+def overlay_heatmap(img, heatmap):
+    arr = np.array(img.resize((300, 300)))
+    return cv2.addWeighted(arr, 0.75, heatmap, 0.25, 0)
 # ==============================
 # Hero
 # ==============================

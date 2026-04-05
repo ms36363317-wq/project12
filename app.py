@@ -204,6 +204,7 @@ st.markdown("""
 MODEL_PATH = "best_efficientnetb3.h5"
 FILE_ID = "1qnrKRAWa7UU5YbtT2UqGDbJij7uH6dIz"
 OLLAMA_URL = "http://localhost:11434/api/generate"
+ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages"
 
 # ==============================
 # Disease Info
@@ -257,58 +258,97 @@ severity_color = {
 }
 
 # ==============================
-# Ollama LLM Explanation
+# LLM Explanation — Ollama أو Claude API
 # ==============================
-def local_llm_explain(disease: str, confidence: float, model: str = "llama3") -> str:
-    """
-    يرسل طلباً إلى Ollama المحلي ويعيد شرحاً طبياً مكوناً من 5 أسطر.
-    تأكد أن Ollama يعمل: ollama serve
-    وأن النموذج محمّل:  ollama pull llama3
-    """
-    prompt = f"""You are an ophthalmology AI assistant.
+PROMPT_TEMPLATE = """You are an ophthalmology AI assistant.
 
 Write exactly 5 short medical lines about this eye disease prediction:
 
 Prediction: {disease}
-Confidence: {confidence * 100:.1f}%
+Confidence: {confidence:.1f}%
 
 Structure (5 lines only, no headers, no repetition):
 1. Prediction statement.
 2. Short clinical definition.
 3. Key symptoms the patient may notice.
 4. Severity level (Mild / Moderate / Severe / Emergency).
-5. Recommended next step.
-"""
+5. Recommended next step."""
 
+
+def _clean_lines(text: str) -> str:
+    """خذ أول 5 أسطر غير فارغة."""
+    lines = [l.strip() for l in text.split("\n") if l.strip()]
+    return "\n".join(lines[:5])
+
+
+def _explain_via_ollama(disease: str, confidence: float, ollama_model: str) -> str:
+    prompt = PROMPT_TEMPLATE.format(disease=disease, confidence=confidence * 100)
     payload = {
-        "model": model,
+        "model": ollama_model,
         "prompt": prompt,
         "stream": False,
-        "options": {
-            "temperature": 0.1,
-            "num_predict": 200,
-            "repeat_penalty": 1.2,
-        }
+        "options": {"temperature": 0.1, "num_predict": 200, "repeat_penalty": 1.2},
     }
+    response = requests.post(OLLAMA_URL, json=payload, timeout=60)
+    response.raise_for_status()
+    raw = response.json().get("response", "").strip()
+    return _clean_lines(raw)
 
+
+def _explain_via_claude(disease: str, confidence: float, api_key: str) -> str:
+    prompt = PROMPT_TEMPLATE.format(disease=disease, confidence=confidence * 100)
+    response = requests.post(
+        ANTHROPIC_API_URL,
+        headers={
+            "x-api-key": api_key,
+            "anthropic-version": "2023-06-01",
+            "content-type": "application/json",
+        },
+        json={
+            "model": "claude-haiku-4-5-20251001",
+            "max_tokens": 300,
+            "messages": [{"role": "user", "content": prompt}],
+        },
+        timeout=30,
+    )
+    response.raise_for_status()
+    raw = response.json()["content"][0]["text"].strip()
+    return _clean_lines(raw)
+
+
+def local_llm_explain(
+    disease: str,
+    confidence: float,
+    ollama_model: str = "llama3",
+    backend: str = "ollama",        # "ollama" أو "claude"
+    anthropic_api_key: str = "",
+) -> str:
+    """
+    يحاول الشرح عبر الـ backend المحدد.
+    إذا فشل Ollama يعطي رسالة خطأ واضحة.
+    إذا فشل Claude يعطي رسالة خطأ واضحة.
+    """
     try:
-        response = requests.post(
-            OLLAMA_URL,
-            json=payload,
-            timeout=60
-        )
-        response.raise_for_status()
-        result = response.json()
-        raw_text = result.get("response", "").strip()
-
-        # تنظيف النص: خذ أول 5 أسطر غير فارغة
-        lines = [l.strip() for l in raw_text.split("\n") if l.strip()]
-        return "\n".join(lines[:5])
+        if backend == "claude":
+            if not anthropic_api_key.strip():
+                return "ERROR: أدخل Anthropic API Key في إعدادات الشريط الجانبي."
+            return _explain_via_claude(disease, confidence, anthropic_api_key.strip())
+        else:
+            return _explain_via_ollama(disease, confidence, ollama_model)
 
     except requests.exceptions.ConnectionError:
-        return "ERROR: تعذّر الاتصال بـ Ollama. تأكد أنه يعمل عبر: ollama serve"
+        if backend == "ollama":
+            return "ERROR: تعذّر الاتصال بـ Ollama — تأكد أنه يعمل عبر: ollama serve"
+        return "ERROR: تعذّر الاتصال بـ Anthropic API — تحقق من اتصالك بالإنترنت."
     except requests.exceptions.Timeout:
-        return "ERROR: انتهت مهلة الاستجابة. النموذج بطيء أو غير محمّل."
+        return "ERROR: انتهت مهلة الاستجابة — النموذج بطيء أو غير محمّل."
+    except requests.exceptions.HTTPError as e:
+        status = e.response.status_code if e.response is not None else "?"
+        if status == 401:
+            return "ERROR: API Key غير صالح — تحقق من المفتاح."
+        if status == 404 and backend == "ollama":
+            return f"ERROR: النموذج «{ollama_model}» غير محمّل — نفّذ: ollama pull {ollama_model}"
+        return f"ERROR: HTTP {status} — {e}"
     except Exception as e:
         return f"ERROR: خطأ غير متوقع: {e}"
 
@@ -435,48 +475,74 @@ st.markdown("""
 model = load_model_cached()
 
 # ==============================
-# Sidebar — Ollama Settings
+# Sidebar — LLM Settings
 # ==============================
 with st.sidebar:
     st.markdown("""
     <div style="font-family:'Syne',sans-serif; font-size:1rem; font-weight:700;
                 color:#818cf8; margin-bottom:1rem; padding-bottom:0.5rem;
                 border-bottom:1px solid rgba(129,140,248,0.2);">
-        ⚙️ إعدادات Ollama
+        ⚙️ إعدادات النموذج اللغوي
     </div>
     """, unsafe_allow_html=True)
-
-    ollama_model = st.selectbox(
-        "اختر النموذج",
-        options=["llama3", "mistral", "phi3", "gemma", "llama2", "neural-chat"],
-        index=0,
-        help="تأكد أن النموذج محمّل عبر: ollama pull <model_name>"
-    )
-
-    ollama_url_input = st.text_input(
-        "Ollama URL",
-        value="http://localhost:11434",
-        help="الرابط الافتراضي لـ Ollama المحلي"
-    )
-    OLLAMA_URL = f"{ollama_url_input.rstrip('/')}/api/generate"
 
     enable_llm = st.toggle("تفعيل شرح LLM", value=True)
 
-    st.markdown("""
-    <div style="margin-top:1.5rem; font-size:0.75rem; color:#3a5a76; line-height:1.8;">
-        <div style="margin-bottom:0.3rem; color:#5a7a96; font-weight:500;">تشغيل Ollama:</div>
-        <code style="background:rgba(56,189,248,0.08); color:#38bdf8;
-                     padding:0.15rem 0.4rem; border-radius:4px; font-size:0.72rem;">
-            ollama serve
-        </code>
-        <br><br>
-        <div style="margin-bottom:0.3rem; color:#5a7a96; font-weight:500;">تحميل نموذج:</div>
-        <code style="background:rgba(56,189,248,0.08); color:#38bdf8;
-                     padding:0.15rem 0.4rem; border-radius:4px; font-size:0.72rem;">
-            ollama pull llama3
-        </code>
-    </div>
-    """, unsafe_allow_html=True)
+    llm_backend = st.radio(
+        "مزوّد النموذج",
+        options=["Ollama (محلي)", "Claude API (سحابي)"],
+        index=0,
+        help="اختر Ollama لو النموذج عندك محلياً، أو Claude API لو عندك مفتاح Anthropic"
+    )
+    backend_key = "ollama" if llm_backend.startswith("Ollama") else "claude"
+
+    # ── Ollama settings ──
+    if backend_key == "ollama":
+        ollama_model = st.selectbox(
+            "نموذج Ollama",
+            options=["llama3", "mistral", "phi3", "gemma", "llama2", "neural-chat"],
+            index=0,
+            help="تأكد أن النموذج محمّل: ollama pull <model>"
+        )
+        ollama_url_input = st.text_input(
+            "Ollama URL",
+            value="http://localhost:11434",
+            help="الرابط الافتراضي لـ Ollama"
+        )
+        OLLAMA_URL = f"{ollama_url_input.rstrip('/')}/api/generate"
+        anthropic_api_key = ""
+
+        st.markdown("""
+        <div style="margin-top:1.2rem; font-size:0.75rem; color:#3a5a76; line-height:2;">
+            <span style="color:#5a7a96; font-weight:500;">تشغيل Ollama:</span><br>
+            <code style="background:rgba(56,189,248,0.08); color:#38bdf8;
+                         padding:0.15rem 0.5rem; border-radius:4px;">ollama serve</code>
+            <br><br>
+            <span style="color:#5a7a96; font-weight:500;">تحميل نموذج:</span><br>
+            <code style="background:rgba(56,189,248,0.08); color:#38bdf8;
+                         padding:0.15rem 0.5rem; border-radius:4px;">ollama pull llama3</code>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # ── Claude API settings ──
+    else:
+        ollama_model = "llama3"  # غير مستخدم
+        anthropic_api_key = st.text_input(
+            "Anthropic API Key",
+            type="password",
+            placeholder="sk-ant-...",
+            help="احصل على مفتاحك من: console.anthropic.com"
+        )
+        st.markdown("""
+        <div style="margin-top:1rem; font-size:0.75rem; color:#3a5a76; line-height:1.8;">
+            النموذج المستخدم:
+            <code style="background:rgba(129,140,248,0.1); color:#818cf8;
+                         padding:0.1rem 0.4rem; border-radius:4px;">claude-haiku</code>
+            <br>
+            <a href="https://console.anthropic.com" target="_blank"
+               style="color:#38bdf8; text-decoration:none;">← احصل على API Key</a>
+        </div>
+        """, unsafe_allow_html=True)
 
 # ==============================
 # Layout
@@ -550,16 +616,22 @@ with right_col:
             </div>
             """, unsafe_allow_html=True)
 
-        # ── Ollama LLM Explanation ──
+        # ── LLM Explanation ──
         if enable_llm:
-            with st.spinner("🤖 جاري توليد الشرح الطبي من Ollama..."):
-                llm_result = local_llm_explain(pred, conf, model=ollama_model)
+            backend_label = "Claude API (Haiku)" if backend_key == "claude" else f"Ollama — {ollama_model}"
+            with st.spinner(f"🤖 جاري توليد الشرح الطبي عبر {backend_label}..."):
+                llm_result = local_llm_explain(
+                    pred, conf,
+                    ollama_model=ollama_model,
+                    backend=backend_key,
+                    anthropic_api_key=anthropic_api_key,
+                )
 
             if llm_result.startswith("ERROR:"):
                 error_msg = llm_result.replace("ERROR:", "").strip()
                 st.markdown(f"""
                 <div class="llm-card">
-                    <div class="llm-card-title">🤖 شرح النموذج اللغوي — {ollama_model}</div>
+                    <div class="llm-card-title">🤖 شرح النموذج اللغوي — {backend_label}</div>
                     <div class="llm-error">⚠️ {error_msg}</div>
                 </div>
                 """, unsafe_allow_html=True)
@@ -571,7 +643,7 @@ with right_col:
                 )
                 st.markdown(f"""
                 <div class="llm-card">
-                    <div class="llm-card-title">🤖 شرح النموذج اللغوي — {ollama_model}</div>
+                    <div class="llm-card-title">🤖 شرح النموذج اللغوي — {backend_label}</div>
                     {lines_html}
                 </div>
                 """, unsafe_allow_html=True)

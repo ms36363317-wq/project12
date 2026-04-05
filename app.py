@@ -257,6 +257,22 @@ class_names = [
 
 # ==============================
 # Helpers
+def preprocess(img):
+    img = img.resize((300, 300))
+    arr = np.array(img)
+    arr = tf.keras.applications.efficientnet.preprocess_input(arr)
+    return np.expand_dims(arr, axis=0)
+
+
+def predict(img, model):
+    preds = model.predict(preprocess(img))
+    idx = np.argmax(preds[0])
+    return class_names[idx], float(np.max(preds)), preds[0]
+
+
+def overlay_heatmap(img, heatmap):
+    arr = np.array(img.resize((300, 300)))
+    return cv2.addWeighted(arr, 0.75, heatmap, 0.25, 0)
 # ==============================
 def gradcam(img, model):
     arr = np.array(img.resize((300, 300)))

@@ -281,7 +281,7 @@ def _clean_lines(text: str) -> str:
     return "\n".join(lines[:5])
 
 
-def _explain_via_ollama(disease: str, confidence: float, ollama_model: str) -> str:
+def _explain_via_ollama(disease: str, confidence: float, ollama_model: str, ollama_url: str) -> str:
     prompt = PROMPT_TEMPLATE.format(disease=disease, confidence=confidence * 100)
     payload = {
         "model": ollama_model,
@@ -289,10 +289,26 @@ def _explain_via_ollama(disease: str, confidence: float, ollama_model: str) -> s
         "stream": False,
         "options": {"temperature": 0.1, "num_predict": 200, "repeat_penalty": 1.2},
     }
-    response = requests.post(OLLAMA_URL, json=payload, timeout=60)
+    api_url = f"{ollama_url.rstrip('/')}/api/generate"
+    response = requests.post(api_url, json=payload, timeout=60)
     response.raise_for_status()
     raw = response.json().get("response", "").strip()
     return _clean_lines(raw)
+
+
+def _test_ollama_connection(ollama_url: str) -> tuple:
+    """يختبر الاتصال بـ Ollama ويعيد (نجح، رسالة)."""
+    try:
+        r = requests.get(ollama_url.rstrip("/"), timeout=5)
+        if r.status_code == 200:
+            return True, "✅ Ollama يعمل بنجاح!"
+        return False, f"⚠️ استجابة غير متوقعة: {r.status_code}"
+    except requests.exceptions.ConnectionError:
+        return False, "❌ لا يمكن الاتصال — تأكد أن: ollama serve يعمل"
+    except requests.exceptions.Timeout:
+        return False, "❌ انتهت المهلة — الخادم لا يستجيب"
+    except Exception as e:
+        return False, f"❌ خطأ: {e}"
 
 
 def _explain_via_claude(disease: str, confidence: float, api_key: str) -> str:
@@ -320,25 +336,21 @@ def local_llm_explain(
     disease: str,
     confidence: float,
     ollama_model: str = "llama3",
-    backend: str = "ollama",        # "ollama" أو "claude"
+    ollama_url: str = "http://localhost:11434",
+    backend: str = "ollama",
     anthropic_api_key: str = "",
 ) -> str:
-    """
-    يحاول الشرح عبر الـ backend المحدد.
-    إذا فشل Ollama يعطي رسالة خطأ واضحة.
-    إذا فشل Claude يعطي رسالة خطأ واضحة.
-    """
     try:
         if backend == "claude":
             if not anthropic_api_key.strip():
                 return "ERROR: أدخل Anthropic API Key في إعدادات الشريط الجانبي."
             return _explain_via_claude(disease, confidence, anthropic_api_key.strip())
         else:
-            return _explain_via_ollama(disease, confidence, ollama_model)
+            return _explain_via_ollama(disease, confidence, ollama_model, ollama_url)
 
     except requests.exceptions.ConnectionError:
         if backend == "ollama":
-            return "ERROR: تعذّر الاتصال بـ Ollama — تأكد أنه يعمل عبر: ollama serve"
+            return f"ERROR: تعذّر الاتصال بـ Ollama على {ollama_url} — تأكد أن: ollama serve يعمل"
         return "ERROR: تعذّر الاتصال بـ Anthropic API — تحقق من اتصالك بالإنترنت."
     except requests.exceptions.Timeout:
         return "ERROR: انتهت مهلة الاستجابة — النموذج بطيء أو غير محمّل."
@@ -504,13 +516,20 @@ with st.sidebar:
             index=0,
             help="تأكد أن النموذج محمّل: ollama pull <model>"
         )
-        ollama_url_input = st.text_input(
+        ollama_url = st.text_input(
             "Ollama URL",
             value="http://localhost:11434",
             help="الرابط الافتراضي لـ Ollama"
         )
-        OLLAMA_URL = f"{ollama_url_input.rstrip('/')}/api/generate"
         anthropic_api_key = ""
+
+        # زر اختبار الاتصال
+        if st.button("🔌 اختبار الاتصال بـ Ollama", use_container_width=True):
+            ok, msg = _test_ollama_connection(ollama_url)
+            if ok:
+                st.success(msg)
+            else:
+                st.error(msg)
 
         st.markdown("""
         <div style="margin-top:1.2rem; font-size:0.75rem; color:#3a5a76; line-height:2;">
@@ -526,7 +545,8 @@ with st.sidebar:
 
     # ── Claude API settings ──
     else:
-        ollama_model = "llama3"  # غير مستخدم
+        ollama_model = "llama3"
+        ollama_url = "http://localhost:11434"
         anthropic_api_key = st.text_input(
             "Anthropic API Key",
             type="password",
@@ -623,6 +643,7 @@ with right_col:
                 llm_result = local_llm_explain(
                     pred, conf,
                     ollama_model=ollama_model,
+                    ollama_url=ollama_url,
                     backend=backend_key,
                     anthropic_api_key=anthropic_api_key,
                 )

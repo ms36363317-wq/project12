@@ -1,4 +1,5 @@
 import os
+import requests
 import streamlit as st
 import numpy as np
 import cv2
@@ -11,7 +12,7 @@ from PIL import Image
 # Page Config
 # ==============================
 st.set_page_config(
-    page_title=" Assistant For Detection Of retinal Diseases",       
+    page_title="Assistant For Detection Of Retinal Diseases",
     initial_sidebar_state="collapsed"
 )
 
@@ -90,7 +91,7 @@ st.markdown("""
     [data-testid="stFileUploader"] > div { border: none !important; background: transparent !important; padding: 0 !important; }
     [data-testid="stFileUploader"] label { color: #38bdf8 !important; font-size: 0.9rem; }
 
-    /* ── Image Cards — أصغر حجماً ── */
+    /* ── Image Cards ── */
     .img-card {
         background: rgba(255,255,255,0.03);
         border: 1px solid rgba(255,255,255,0.07);
@@ -147,6 +148,40 @@ st.markdown("""
     }
     .disease-card-text { font-size: 0.85rem; color: #8ba3bf; line-height: 1.65; }
 
+    /* ── LLM Explanation Card ── */
+    .llm-card {
+        background: rgba(129,140,248,0.07);
+        border: 1px solid rgba(129,140,248,0.22);
+        border-radius: 14px;
+        padding: 1.2rem 1.4rem;
+        margin-top: 1rem;
+    }
+    .llm-card-title {
+        font-family: 'Syne', sans-serif; font-size: 0.95rem;
+        font-weight: 700; color: #818cf8; margin-bottom: 0.75rem;
+        display: flex; align-items: center; gap: 0.4rem;
+    }
+    .llm-line {
+        font-size: 0.86rem; color: #c8d8ea;
+        line-height: 1.7; margin-bottom: 0.4rem;
+        padding-left: 0.5rem;
+        border-left: 2px solid rgba(129,140,248,0.3);
+    }
+    .llm-error {
+        font-size: 0.82rem; color: #f59e0b;
+        background: rgba(245,158,11,0.08);
+        border: 1px solid rgba(245,158,11,0.2);
+        border-radius: 8px; padding: 0.7rem 1rem;
+        margin-top: 0.5rem;
+    }
+
+    /* ── Ollama Model Selector ── */
+    .model-selector-label {
+        font-size: 0.72rem; letter-spacing: 0.18em;
+        text-transform: uppercase; color: #5a7a96;
+        margin-bottom: 0.4rem;
+    }
+
     /* ── Disclaimer ── */
     .disclaimer {
         background: rgba(245,158,11,0.08);
@@ -168,6 +203,7 @@ st.markdown("""
 # ==============================
 MODEL_PATH = "best_efficientnetb3.h5"
 FILE_ID = "1qnrKRAWa7UU5YbtT2UqGDbJij7uH6dIz"
+OLLAMA_URL = "http://localhost:11434/api/generate"
 
 # ==============================
 # Disease Info
@@ -221,7 +257,64 @@ severity_color = {
 }
 
 # ==============================
-# Load Model
+# Ollama LLM Explanation
+# ==============================
+def local_llm_explain(disease: str, confidence: float, model: str = "llama3") -> str:
+    """
+    يرسل طلباً إلى Ollama المحلي ويعيد شرحاً طبياً مكوناً من 5 أسطر.
+    تأكد أن Ollama يعمل: ollama serve
+    وأن النموذج محمّل:  ollama pull llama3
+    """
+    prompt = f"""You are an ophthalmology AI assistant.
+
+Write exactly 5 short medical lines about this eye disease prediction:
+
+Prediction: {disease}
+Confidence: {confidence * 100:.1f}%
+
+Structure (5 lines only, no headers, no repetition):
+1. Prediction statement.
+2. Short clinical definition.
+3. Key symptoms the patient may notice.
+4. Severity level (Mild / Moderate / Severe / Emergency).
+5. Recommended next step.
+"""
+
+    payload = {
+        "model": model,
+        "prompt": prompt,
+        "stream": False,
+        "options": {
+            "temperature": 0.1,
+            "num_predict": 200,
+            "repeat_penalty": 1.2,
+        }
+    }
+
+    try:
+        response = requests.post(
+            OLLAMA_URL,
+            json=payload,
+            timeout=60
+        )
+        response.raise_for_status()
+        result = response.json()
+        raw_text = result.get("response", "").strip()
+
+        # تنظيف النص: خذ أول 5 أسطر غير فارغة
+        lines = [l.strip() for l in raw_text.split("\n") if l.strip()]
+        return "\n".join(lines[:5])
+
+    except requests.exceptions.ConnectionError:
+        return "ERROR: تعذّر الاتصال بـ Ollama. تأكد أنه يعمل عبر: ollama serve"
+    except requests.exceptions.Timeout:
+        return "ERROR: انتهت مهلة الاستجابة. النموذج بطيء أو غير محمّل."
+    except Exception as e:
+        return f"ERROR: خطأ غير متوقع: {e}"
+
+
+# ==============================
+# Load Vision Model
 # ==============================
 @st.cache_resource
 def load_model_cached():
@@ -247,6 +340,7 @@ def load_model_cached():
         st.error(f"❌ فشل تحميل النموذج: {e}")
         st.stop()
 
+
 # ==============================
 # Classes
 # ==============================
@@ -257,6 +351,7 @@ class_names = [
 
 # ==============================
 # Helpers
+# ==============================
 def preprocess(img):
     img = img.resize((300, 300))
     arr = np.array(img)
@@ -273,7 +368,8 @@ def predict(img, model):
 def overlay_heatmap(img, heatmap):
     arr = np.array(img.resize((300, 300)))
     return cv2.addWeighted(arr, 0.75, heatmap, 0.25, 0)
-# ==============================
+
+
 def gradcam(img, model):
     arr = np.array(img.resize((300, 300)))
     arr = tf.keras.applications.efficientnet.preprocess_input(arr)
@@ -291,7 +387,6 @@ def gradcam(img, model):
 
     with tf.GradientTape() as tape:
         outputs = grad_model(arr)
-
         conv_outputs = outputs[0]
         predictions = outputs[1]
 
@@ -318,24 +413,70 @@ def gradcam(img, model):
     cam = cv2.resize(cam, (300, 300))
 
     return cv2.applyColorMap(np.uint8(255 * cam), cv2.COLORMAP_JET)
+
+
 # ==============================
 # Hero
 # ==============================
 st.markdown("""
 <div class="hero">
     <div class="hero-eyebrow">AI-Powered Ophthalmology</div>
-    <h1 class="hero-title">Assistant For Detection Of retinal Diseases <span>AI</span></h1>
+    <h1 class="hero-title">Assistant For Detection Of Retinal Diseases <span>AI</span></h1>
     <p class="hero-subtitle">
-                نظام ذكاء اصطناعي لتحليل صور قاع العين وكشف الأمراض بدقة عالية باستخدام EfficientNet and Grad-CAM
+        نظام ذكاء اصطناعي لتحليل صور قاع العين وكشف الأمراض بدقة عالية باستخدام EfficientNet و Grad-CAM و Ollama LLM
     </p>
 </div>
 <div class="divider"></div>
 """, unsafe_allow_html=True)
 
 # ==============================
-# Load
+# Load Vision Model
 # ==============================
 model = load_model_cached()
+
+# ==============================
+# Sidebar — Ollama Settings
+# ==============================
+with st.sidebar:
+    st.markdown("""
+    <div style="font-family:'Syne',sans-serif; font-size:1rem; font-weight:700;
+                color:#818cf8; margin-bottom:1rem; padding-bottom:0.5rem;
+                border-bottom:1px solid rgba(129,140,248,0.2);">
+        ⚙️ إعدادات Ollama
+    </div>
+    """, unsafe_allow_html=True)
+
+    ollama_model = st.selectbox(
+        "اختر النموذج",
+        options=["llama3", "mistral", "phi3", "gemma", "llama2", "neural-chat"],
+        index=0,
+        help="تأكد أن النموذج محمّل عبر: ollama pull <model_name>"
+    )
+
+    ollama_url_input = st.text_input(
+        "Ollama URL",
+        value="http://localhost:11434",
+        help="الرابط الافتراضي لـ Ollama المحلي"
+    )
+    OLLAMA_URL = f"{ollama_url_input.rstrip('/')}/api/generate"
+
+    enable_llm = st.toggle("تفعيل شرح LLM", value=True)
+
+    st.markdown("""
+    <div style="margin-top:1.5rem; font-size:0.75rem; color:#3a5a76; line-height:1.8;">
+        <div style="margin-bottom:0.3rem; color:#5a7a96; font-weight:500;">تشغيل Ollama:</div>
+        <code style="background:rgba(56,189,248,0.08); color:#38bdf8;
+                     padding:0.15rem 0.4rem; border-radius:4px; font-size:0.72rem;">
+            ollama serve
+        </code>
+        <br><br>
+        <div style="margin-bottom:0.3rem; color:#5a7a96; font-weight:500;">تحميل نموذج:</div>
+        <code style="background:rgba(56,189,248,0.08); color:#38bdf8;
+                     padding:0.15rem 0.4rem; border-radius:4px; font-size:0.72rem;">
+            ollama pull llama3
+        </code>
+    </div>
+    """, unsafe_allow_html=True)
 
 # ==============================
 # Layout
@@ -356,7 +497,7 @@ with left_col:
     if uploaded_file:
         image = Image.open(uploaded_file).convert("RGB")
         thumb = image.copy()
-        thumb.thumbnail((210, 210))          # ← تصغير عرض الصورة
+        thumb.thumbnail((210, 210))
         st.markdown('<div class="img-card">', unsafe_allow_html=True)
         st.image(thumb, use_container_width=False, width=220)
         st.markdown('<div class="img-card-label">الصورة الأصلية</div></div>', unsafe_allow_html=True)
@@ -378,7 +519,7 @@ with right_col:
         color = severity_color.get(pred, "#38bdf8")
         info = disease_info.get(pred, {})
 
-        # Diagnosis
+        # ── Diagnosis ──
         st.markdown(f"""
         <div style="margin-bottom:1.5rem;">
             <div style="font-size:0.72rem; letter-spacing:0.18em; text-transform:uppercase;
@@ -395,6 +536,7 @@ with right_col:
 
         st.progress(int(conf * 100))
 
+        # ── Disease Card ──
         if info:
             st.markdown(f"""
             <div class="disease-card">
@@ -408,7 +550,33 @@ with right_col:
             </div>
             """, unsafe_allow_html=True)
 
-        # Grad-CAM — أصغر حجماً
+        # ── Ollama LLM Explanation ──
+        if enable_llm:
+            with st.spinner("🤖 جاري توليد الشرح الطبي من Ollama..."):
+                llm_result = local_llm_explain(pred, conf, model=ollama_model)
+
+            if llm_result.startswith("ERROR:"):
+                error_msg = llm_result.replace("ERROR:", "").strip()
+                st.markdown(f"""
+                <div class="llm-card">
+                    <div class="llm-card-title">🤖 شرح النموذج اللغوي — {ollama_model}</div>
+                    <div class="llm-error">⚠️ {error_msg}</div>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                lines = [l.strip() for l in llm_result.split("\n") if l.strip()]
+                lines_html = "".join(
+                    f'<div class="llm-line">{line}</div>'
+                    for line in lines
+                )
+                st.markdown(f"""
+                <div class="llm-card">
+                    <div class="llm-card-title">🤖 شرح النموذج اللغوي — {ollama_model}</div>
+                    {lines_html}
+                </div>
+                """, unsafe_allow_html=True)
+
+        # ── Grad-CAM ──
         st.markdown('<br>', unsafe_allow_html=True)
         st.markdown("""
         <div style="font-size:0.72rem; letter-spacing:0.18em; text-transform:uppercase;
@@ -425,7 +593,7 @@ with right_col:
             st.image(overlay, width=200, channels="BGR")
             st.markdown('<div class="img-card-label">الصورة المدمجة</div></div>', unsafe_allow_html=True)
 
-        # All probabilities
+        # ── All Probabilities ──
         with st.expander("📊 جميع الاحتمالات"):
             for i in np.argsort(all_preds)[::-1]:
                 pct = float(all_preds[i]) * 100
@@ -442,6 +610,7 @@ with right_col:
                     <div style="width:44px; text-align:right; color:#5a7a96;">{pct:.1f}%</div>
                 </div>
                 """, unsafe_allow_html=True)
+
     else:
         st.markdown("""
         <div style="display:flex; flex-direction:column; align-items:center;

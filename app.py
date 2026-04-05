@@ -518,7 +518,7 @@ with st.sidebar:
         )
         ollama_url = st.text_input(
             "Ollama URL",
-            value=""http://127.0.0.1:11434"",
+            value="http://127.0.0.1:11434",
             help="الرابط الافتراضي لـ Ollama"
         )
         anthropic_api_key = ""

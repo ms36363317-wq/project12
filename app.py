@@ -166,8 +166,8 @@ st.markdown("""
 # ==============================
 # Constants
 # ==============================
-MODEL_PATH = "model.h5"
-FILE_ID = "11tjmQJITN0zHQ7x2wMPOF9L1JWnoZTxQ"
+MODEL_PATH = "best_efficientnetb3.h5"
+FILE_ID = "1qnrKRAWa7UU5YbtT2UqGDbJij7uH6dIz"
 
 # ==============================
 # Disease Info
